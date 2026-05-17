@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    io::{self, BufRead, Write},
+    io::{self, BufRead, Cursor, Write},
     path::PathBuf,
 };
 
@@ -18,6 +18,7 @@ pub struct MuddleCliRunOptions {
     pub load_path: Option<PathBuf>,
     pub save_path: Option<PathBuf>,
     pub transcript_path: Option<PathBuf>,
+    pub script_path: Option<PathBuf>,
 }
 
 pub fn run_muddle_host(
@@ -40,8 +41,27 @@ pub fn run_muddle_host_from_env_args(
     info: MuddleCliHostInfo,
 ) -> io::Result<MuddleSession> {
     let options = parse_run_options(env::args().skip(1))?;
-    let stdin = io::stdin();
+    run_muddle_host_with_stdio(host, info, options)
+}
+
+pub fn run_muddle_host_with_stdio(
+    host: &mut dyn MuddleHost,
+    info: MuddleCliHostInfo,
+    options: MuddleCliRunOptions,
+) -> io::Result<MuddleSession> {
     let stdout = io::stdout();
+    if let Some(path) = &options.script_path {
+        let script = fs::read_to_string(path)?;
+        return run_muddle_host_with_options(
+            host,
+            info,
+            options,
+            Cursor::new(script),
+            stdout.lock(),
+        );
+    }
+
+    let stdin = io::stdin();
     run_muddle_host_with_options(host, info, options, stdin.lock(), stdout.lock())
 }
 
@@ -143,6 +163,11 @@ pub fn parse_run_options(
                         io::ErrorKind::InvalidInput,
                         "`--transcript` requires a path",
                     )
+                })?));
+            }
+            "--script" => {
+                options.script_path = Some(PathBuf::from(args.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "`--script` requires a path")
                 })?));
             }
             _ => {
@@ -389,6 +414,8 @@ mod tests {
                 "out.muddle",
                 "--transcript",
                 "play.txt",
+                "--script",
+                "commands.txt",
             ]
             .into_iter()
             .map(String::from),
@@ -398,6 +425,7 @@ mod tests {
         assert_eq!(options.load_path, Some(PathBuf::from("in.muddle")));
         assert_eq!(options.save_path, Some(PathBuf::from("out.muddle")));
         assert_eq!(options.transcript_path, Some(PathBuf::from("play.txt")));
+        assert_eq!(options.script_path, Some(PathBuf::from("commands.txt")));
     }
 
     #[test]
@@ -414,6 +442,7 @@ mod tests {
                 load_path: None,
                 save_path: Some(save_path.clone()),
                 transcript_path: Some(transcript_path.clone()),
+                script_path: None,
             },
             "go north\nquit\n".as_bytes(),
             &mut output,
@@ -437,6 +466,7 @@ mod tests {
                 load_path: Some(save_path.clone()),
                 save_path: Some(save_path.clone()),
                 transcript_path: Some(transcript_path.clone()),
+                script_path: None,
             },
             "look\nquit\n".as_bytes(),
             &mut resumed_output,

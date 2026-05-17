@@ -2,7 +2,7 @@ use std::{env, io};
 
 use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
-use muddle_cli::{run_muddle_host_with_options, MuddleCliHostInfo, MuddleCliRunOptions};
+use muddle_cli::{run_muddle_host_with_stdio, MuddleCliHostInfo, MuddleCliRunOptions};
 use muddle_core::MuddleHost;
 use muddle_mock_sim::MuddleMockSimHost;
 
@@ -50,14 +50,7 @@ fn main() -> io::Result<()> {
 
 fn run_host(registration: HostRegistration, options: MuddleCliRunOptions) -> io::Result<()> {
     let mut host = (registration.create)();
-    run_muddle_host_with_options(
-        host.as_mut(),
-        registration.info(),
-        options,
-        io::stdin().lock(),
-        io::stdout().lock(),
-    )
-    .map(|_| ())
+    run_muddle_host_with_stdio(host.as_mut(), registration.info(), options).map(|_| ())
 }
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, String> {
@@ -113,6 +106,15 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, Strin
             continue;
         }
 
+        if arg == "--script" {
+            options.script_path = Some(
+                args.next()
+                    .ok_or_else(|| "`--script` requires a path.".to_string())?
+                    .into(),
+            );
+            continue;
+        }
+
         return Err(format!("Unknown argument `{arg}`."));
     }
 
@@ -163,7 +165,7 @@ impl HostRegistration {
 
 fn print_host_usage() {
     eprintln!(
-        "Usage: muddle-cli [--host <name>] [--save <path>] [--load <path>] [--transcript <path>] [--list-hosts]"
+        "Usage: muddle-cli [--host <name>] [--save <path>] [--load <path>] [--transcript <path>] [--script <path>] [--list-hosts]"
     );
 }
 
@@ -217,7 +219,9 @@ mod tests {
                     "--load",
                     "load.muddle",
                     "--transcript",
-                    "play.txt"
+                    "play.txt",
+                    "--script",
+                    "commands.txt"
                 ]
                 .into_iter()
                 .map(String::from)
@@ -227,7 +231,8 @@ mod tests {
                 options: MuddleCliRunOptions {
                     save_path: Some("save.muddle".into()),
                     load_path: Some("load.muddle".into()),
-                    transcript_path: Some("play.txt".into())
+                    transcript_path: Some("play.txt".into()),
+                    script_path: Some("commands.txt".into())
                 }
             })
         );

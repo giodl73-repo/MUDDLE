@@ -69,11 +69,14 @@ cargo run -p muddle-cli -- --list-hosts
 cargo run -p muddle-cli -- --host mock-labyrinth
 cargo run -p muddle-cli -- --host banish-pilgrim-loss
 cargo run -p muddle-cli -- --host amaze-silverstream
+cargo run -p muddle-cli -- --host mock-labyrinth --script commands.txt --transcript play.txt
 ```
 
 The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
 camp ember, glyph antechamber, sealed gate, and echo vault. That lets MUDDLE
 test named host mounting inside this repo before integrating BANISH or AMAZE.
+For repeatable smoke checks, `--script <path>` reads newline-delimited commands
+from a file while still supporting `--save`, `--load`, and `--transcript`.
 
 ## Host extension model
 
