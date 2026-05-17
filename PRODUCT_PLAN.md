@@ -81,6 +81,8 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - `muddle-mock-sim` stateful labyrinth fixture host
 - `muddle-banish-spike` Pilgrim Loss launcher adapter spike
 - `muddle-amaze-spike` Silverstream escape-room adapter spike
+- BANISH-owned `pilgrim_loss_muddle_host()` backed by BANISH surface data
+- AMAZE-owned `silverstream_muddle_host()` backed by AMAZE surface data
 - CLI fixture play loop with named host selection
 
 ## Plan review
@@ -100,9 +102,9 @@ Recommended next sequence:
    AMAZE-like locks.
 4. Add a CLI renderer as the first playable surface over that adapter.
 5. Add adapter selection so `muddle-cli` can mount named hosts.
-6. Replace the in-MUDDLE BANISH and AMAZE adapter spikes with product-owned
-   adapters backed by `pilgrim_loss_muddle_surface()` and
-   `silverstream_muddle_surface()`.
+6. Wire the CLI to the product-owned BANISH and AMAZE adapters now backed by
+   `pilgrim_loss_muddle_host()` and `silverstream_muddle_host()`, after settling
+   the dependency direction.
 7. Expand panel contracts for inventories, recent logs, and richer maps after two
    host adapters prove the minimal status/map shape.
 8. Add transcript replay/save-resume fixtures against those adapters.

@@ -11,6 +11,7 @@
 | 7. AMAZE adapter spike | Mount one AMAZE escape room through `MuddleHost`. | `muddle-cli --host amaze-silverstream` drives a transcriptable clue/lock/escape path. |
 | 8. Save/resume | Add portable session persistence contracts. | A transcript can restore current room and state. |
 | 9. Play panels | Add deterministic status/resource, objective, command-hint, and map panels beyond room cards. | Hosts render resource counts, goals, command hints, and ASCII maps through shared renderer contracts. |
-| 10. Rich renderer | Add a richer TUI/window surface once CLI contracts are stable. | The richer surface reuses `muddle-core` without duplicating engine rules. |
-| 11. Review gates | Integrate with product validation and RALLY where appropriate. | Product repos can validate mounted play flows. |
+| 10. Product-owned adapters | Move BANISH and AMAZE host implementations into their repos while keeping MUDDLE core product-neutral. | BANISH and AMAZE expose `MuddleHost` implementations backed by their own surface APIs. |
+| 11. Rich renderer | Add a richer TUI/window surface once CLI contracts are stable. | The richer surface reuses `muddle-core` without duplicating engine rules. |
+| 12. Review gates | Integrate with product validation and RALLY where appropriate. | Product repos can validate mounted play flows. |
 
