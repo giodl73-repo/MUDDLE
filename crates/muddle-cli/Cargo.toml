@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+muddle-amaze-spike = { path = "../muddle-amaze-spike" }
 muddle-banish-spike = { path = "../muddle-banish-spike" }
 muddle-core = { path = "../muddle-core" }
 muddle-mock-sim = { path = "../muddle-mock-sim" }

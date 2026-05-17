@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "muddle-amaze-spike"
+version = "0.1.0"
+dependencies = [
+ "muddle-core",
+]
+
+[[package]]
 name = "muddle-banish-spike"
 version = "0.1.0"
 dependencies = [
@@ -13,6 +20,7 @@ dependencies = [
 name = "muddle-cli"
 version = "0.1.0"
 dependencies = [
+ "muddle-amaze-spike",
  "muddle-banish-spike",
  "muddle-core",
  "muddle-mock-sim",

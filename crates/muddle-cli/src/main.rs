@@ -3,6 +3,7 @@ use std::{
     io::{self, Write},
 };
 
+use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
 use muddle_core::{MuddleCommand, MuddleHost, MuddleSession};
 use muddle_mock_sim::MuddleMockSimHost;
@@ -166,6 +167,13 @@ fn host_registry() -> Vec<HostRegistration> {
                 "`look`, `choose resume`, `inspect plan`, `inspect manifest`, `go trail`, `resolve loss`, `quit`.",
             create: || Box::new(BanishPilgrimLossHost::new()),
         },
+        HostRegistration {
+            name: "amaze-silverstream",
+            description: "AMAZE Silverstream adapter spike: clue, signal, hatch, and escape path.",
+            suggested_commands:
+                "`look`, `go receiver`, `inspect clue`, `tune signal`, `unlock hatch`, `go hatch`, `quit`.",
+            create: || Box::new(AmazeSilverstreamHost::new()),
+        },
     ]
 }
 
@@ -212,6 +220,12 @@ mod tests {
     fn registers_banish_pilgrim_loss_host() {
         let registration = find_host("banish-pilgrim-loss").expect("BANISH spike is registered");
         assert_eq!(registration.name, "banish-pilgrim-loss");
+    }
+
+    #[test]
+    fn registers_amaze_silverstream_host() {
+        let registration = find_host("amaze-silverstream").expect("AMAZE spike is registered");
+        assert_eq!(registration.name, "amaze-silverstream");
     }
 
     #[test]
