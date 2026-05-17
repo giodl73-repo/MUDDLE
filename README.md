@@ -42,8 +42,8 @@ Current crates:
 | Crate | Purpose |
 |---|---|
 | `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, transcripts, and host adapter contracts. |
-| `muddle-amaze-spike` | AMAZE Silverstream adapter spike that proves escape-room clue/lock mounting before AMAZE exposes a library adapter. |
-| `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before BANISH exposes a library adapter. |
+| `muddle-amaze-spike` | AMAZE Silverstream adapter spike that proves escape-room clue/lock mounting before replacing it with AMAZE-owned APIs. |
+| `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
 
@@ -84,8 +84,8 @@ first wave. They provide explicit adapters that implement `MuddleHost`.
 |---|---|
 | `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, and transcript behavior. |
 | `muddle-mock-sim` | Proves host-owned mutable labyrinth state, resources, locks, and command outcomes inside the MUDDLE workspace. |
-| `muddle-banish-spike` | Proves a BANISH-shaped launcher adapter surface until BANISH exposes a clean library adapter. |
-| `muddle-amaze-spike` | Proves an AMAZE-shaped escape-room adapter surface until AMAZE exposes a clean library adapter. |
+| `muddle-banish-spike` | Proves a BANISH-shaped launcher adapter surface; BANISH now exposes `pilgrim_loss_muddle_surface()` as the product-owned handoff API. |
+| `muddle-amaze-spike` | Proves an AMAZE-shaped escape-room adapter surface; AMAZE now exposes `silverstream_muddle_surface()` as the product-owned handoff API. |
 | Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |
 | Renderer | CLI first, richer TUI/window later; both select hosts and call the same session APIs. |
 
