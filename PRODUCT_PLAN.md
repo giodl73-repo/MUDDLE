@@ -87,6 +87,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - AMAZE-owned `silverstream_muddle_host()` backed by AMAZE surface data
 - reusable `muddle-cli` runner entry points for product-owned launchers
 - portable command-transcript save/resume contracts
+- readable transcript export from the shared runner
 - save/resume regression coverage in MUDDLE, BANISH, and AMAZE
 - product-owned `banish-muddle` and `amaze-muddle` binaries
 - CLI fixture play loop with named host selection

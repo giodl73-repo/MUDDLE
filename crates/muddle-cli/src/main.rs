@@ -104,6 +104,15 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, Strin
             continue;
         }
 
+        if arg == "--transcript" {
+            options.transcript_path = Some(
+                args.next()
+                    .ok_or_else(|| "`--transcript` requires a path.".to_string())?
+                    .into(),
+            );
+            continue;
+        }
+
         return Err(format!("Unknown argument `{arg}`."));
     }
 
@@ -153,7 +162,9 @@ impl HostRegistration {
 }
 
 fn print_host_usage() {
-    eprintln!("Usage: muddle-cli [--host <name>] [--save <path>] [--load <path>] [--list-hosts]");
+    eprintln!(
+        "Usage: muddle-cli [--host <name>] [--save <path>] [--load <path>] [--transcript <path>] [--list-hosts]"
+    );
 }
 
 fn print_hosts() {
@@ -204,7 +215,9 @@ mod tests {
                     "--save",
                     "save.muddle",
                     "--load",
-                    "load.muddle"
+                    "load.muddle",
+                    "--transcript",
+                    "play.txt"
                 ]
                 .into_iter()
                 .map(String::from)
@@ -213,7 +226,8 @@ mod tests {
                 host_name: "mock-labyrinth".to_string(),
                 options: MuddleCliRunOptions {
                     save_path: Some("save.muddle".into()),
-                    load_path: Some("load.muddle".into())
+                    load_path: Some("load.muddle".into()),
+                    transcript_path: Some("play.txt".into())
                 }
             })
         );

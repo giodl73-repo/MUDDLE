@@ -17,6 +17,7 @@ pub struct MuddleCliHostInfo {
 pub struct MuddleCliRunOptions {
     pub load_path: Option<PathBuf>,
     pub save_path: Option<PathBuf>,
+    pub transcript_path: Option<PathBuf>,
 }
 
 pub fn run_muddle_host(
@@ -114,6 +115,7 @@ where
     }
 
     write_save_if_requested(&mut output, &session, &options)?;
+    write_transcript_if_requested(&mut output, info, &session, &options)?;
     Ok(session)
 }
 
@@ -133,6 +135,14 @@ pub fn parse_run_options(
             "--save" => {
                 options.save_path = Some(PathBuf::from(args.next().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "`--save` requires a path")
+                })?));
+            }
+            "--transcript" => {
+                options.transcript_path = Some(PathBuf::from(args.next().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "`--transcript` requires a path",
+                    )
                 })?));
             }
             _ => {
@@ -157,6 +167,40 @@ fn write_save_if_requested<W: Write>(
         writeln!(output, "Saved MUDDLE session to {}.", path.display())?;
     }
     Ok(())
+}
+
+fn write_transcript_if_requested<W: Write>(
+    output: &mut W,
+    info: MuddleCliHostInfo,
+    session: &MuddleSession,
+    options: &MuddleCliRunOptions,
+) -> io::Result<()> {
+    if let Some(path) = &options.transcript_path {
+        fs::write(path, render_transcript(info, session))?;
+        writeln!(output, "Exported MUDDLE transcript to {}.", path.display())?;
+    }
+    Ok(())
+}
+
+pub fn render_transcript(info: MuddleCliHostInfo, session: &MuddleSession) -> String {
+    let mut lines = vec![
+        "MUDDLE_TRANSCRIPT_V1".to_string(),
+        format!("host={}", info.name),
+        format!("current_room={}", session.current_room),
+        format!("turns={}", session.transcript.len()),
+        String::new(),
+    ];
+
+    for (index, turn) in session.transcript.iter().enumerate() {
+        lines.push(format!("## Turn {}", index + 1));
+        lines.push(format!("room: {}", turn.room_id));
+        lines.push(format!("command: {}", turn.command.normalized()));
+        lines.push("response:".to_string());
+        lines.extend(turn.response.lines().map(|line| format!("  {line}")));
+        lines.push(String::new());
+    }
+
+    lines.join("\n")
 }
 
 pub fn write_play_panels<W: Write>(
@@ -338,19 +382,28 @@ mod tests {
     #[test]
     fn parses_save_and_load_options() {
         let options = parse_run_options(
-            ["--load", "in.muddle", "--save", "out.muddle"]
-                .into_iter()
-                .map(String::from),
+            [
+                "--load",
+                "in.muddle",
+                "--save",
+                "out.muddle",
+                "--transcript",
+                "play.txt",
+            ]
+            .into_iter()
+            .map(String::from),
         )
         .expect("options parse");
 
         assert_eq!(options.load_path, Some(PathBuf::from("in.muddle")));
         assert_eq!(options.save_path, Some(PathBuf::from("out.muddle")));
+        assert_eq!(options.transcript_path, Some(PathBuf::from("play.txt")));
     }
 
     #[test]
     fn runner_saves_and_loads_transcript_replay() {
         let save_path = temp_save_path("runner-save-load");
+        let transcript_path = temp_save_path("runner-transcript-export");
         let mut host = test_host();
         let mut output = Vec::new();
 
@@ -360,6 +413,7 @@ mod tests {
             MuddleCliRunOptions {
                 load_path: None,
                 save_path: Some(save_path.clone()),
+                transcript_path: Some(transcript_path.clone()),
             },
             "go north\nquit\n".as_bytes(),
             &mut output,
@@ -370,6 +424,9 @@ mod tests {
         let encoded = fs::read_to_string(&save_path).expect("save file exists");
         assert!(encoded.contains("current_room=north"));
         assert!(encoded.contains("command=go north"));
+        let transcript = fs::read_to_string(&transcript_path).expect("transcript file exists");
+        assert!(transcript.contains("MUDDLE_TRANSCRIPT_V1"));
+        assert!(transcript.contains("command: go north"));
 
         let mut resumed_host = test_host();
         let mut resumed_output = Vec::new();
@@ -379,6 +436,7 @@ mod tests {
             MuddleCliRunOptions {
                 load_path: Some(save_path.clone()),
                 save_path: Some(save_path.clone()),
+                transcript_path: Some(transcript_path.clone()),
             },
             "look\nquit\n".as_bytes(),
             &mut resumed_output,
@@ -391,6 +449,20 @@ mod tests {
         assert!(rendered.contains("Loaded MUDDLE session"));
 
         fs::remove_file(save_path).expect("save file can be removed");
+        fs::remove_file(transcript_path).expect("transcript file can be removed");
+    }
+
+    #[test]
+    fn renders_readable_transcript_export() {
+        let mut session = MuddleSession::new("entry");
+        session.record_turn(MuddleCommand::parse("look"), "+ Entry\n| exits: go north");
+
+        let transcript = render_transcript(test_info(), &session);
+
+        assert!(transcript.contains("host=test-host"));
+        assert!(transcript.contains("turns=1"));
+        assert!(transcript.contains("command: look"));
+        assert!(transcript.contains("  + Entry"));
     }
 
     fn test_info() -> MuddleCliHostInfo {
