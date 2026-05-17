@@ -1,0 +1,7 @@
+[package]
+name = "muddle-banish-spike"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+muddle-core = { path = "../muddle-core" }

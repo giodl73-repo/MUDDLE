@@ -3,6 +3,7 @@ use std::{
     io::{self, Write},
 };
 
+use muddle_banish_spike::BanishPilgrimLossHost;
 use muddle_core::{MuddleCommand, MuddleHost, MuddleSession};
 use muddle_mock_sim::MuddleMockSimHost;
 
@@ -11,6 +12,7 @@ const DEFAULT_HOST: &str = "mock-labyrinth";
 struct HostRegistration {
     name: &'static str,
     description: &'static str,
+    suggested_commands: &'static str,
     create: fn() -> Box<dyn MuddleHost>,
 }
 
@@ -52,7 +54,7 @@ fn run_host(registration: HostRegistration) -> io::Result<()> {
     println!("MUDDLE CLI");
     println!("Host mounted: {}", registration.name);
     println!("{}", registration.description);
-    println!("Try: `look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`, `quit`.");
+    println!("Try: {}", registration.suggested_commands);
 
     loop {
         print!("\n{}> ", session.current_room);
@@ -117,11 +119,22 @@ fn find_host(name: &str) -> Option<HostRegistration> {
 }
 
 fn host_registry() -> Vec<HostRegistration> {
-    vec![HostRegistration {
-        name: DEFAULT_HOST,
-        description: "Labyrinth mock sim: BANISH-like resource state plus AMAZE-like locks.",
-        create: || Box::new(MuddleMockSimHost::new()),
-    }]
+    vec![
+        HostRegistration {
+            name: DEFAULT_HOST,
+            description: "Labyrinth mock sim: BANISH-like resource state plus AMAZE-like locks.",
+            suggested_commands:
+                "`look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`, `quit`.",
+            create: || Box::new(MuddleMockSimHost::new()),
+        },
+        HostRegistration {
+            name: "banish-pilgrim-loss",
+            description: "BANISH Pilgrim Loss adapter spike: launcher, campaign brief, and migration trail.",
+            suggested_commands:
+                "`look`, `choose resume`, `inspect plan`, `inspect manifest`, `go trail`, `resolve loss`, `quit`.",
+            create: || Box::new(BanishPilgrimLossHost::new()),
+        },
+    ]
 }
 
 fn print_host_usage() {
@@ -153,14 +166,20 @@ mod tests {
     fn parses_named_hosts() {
         assert_eq!(
             parse_args(
-                ["muddle-cli", "--host", "mock-labyrinth"]
+                ["muddle-cli", "--host", "banish-pilgrim-loss"]
                     .into_iter()
                     .map(String::from)
             ),
             Ok(CliAction::Run {
-                host_name: "mock-labyrinth".to_string()
+                host_name: "banish-pilgrim-loss".to_string()
             })
         );
+    }
+
+    #[test]
+    fn registers_banish_pilgrim_loss_host() {
+        let registration = find_host("banish-pilgrim-loss").expect("BANISH spike is registered");
+        assert_eq!(registration.name, "banish-pilgrim-loss");
     }
 
     #[test]

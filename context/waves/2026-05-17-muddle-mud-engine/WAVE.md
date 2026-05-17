@@ -29,7 +29,8 @@ Create MUDDLE as a shared text/ASCII interaction engine for portfolio games.
 | [Pulse 01 - Workspace and core rooms](pulses/pulse-01.md) | Done | Create the workspace and first product-neutral room/session model. |
 | [Pulse 02 - Role contracts and plan review](pulses/pulse-02.md) | Done | Define MUDDLE delivery roles and sharpen the next adapter-first plan. |
 | [Pulse 03 - Adapter seam and CLI](pulses/pulse-03.md) | Done | Prove the host adapter seam with a static fixture and first CLI renderer. |
-| [Pulse 04 - Destination and host mounting](pulses/pulse-04.md) | Active | Set the destination goal for playing BANISH games and AMAZE escape rooms through one MUDDLE surface. |
+| [Pulse 04 - Destination and host mounting](pulses/pulse-04.md) | Done | Set the destination goal for playing BANISH games and AMAZE escape rooms through one MUDDLE surface. |
+| [Pulse 05 - BANISH adapter spike](pulses/pulse-05.md) | Active | Mount a Pilgrim Loss launcher-shaped BANISH host through MUDDLE CLI selection. |
 
 ## Validation
 

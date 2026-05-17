@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/muddle-banish-spike",
     "crates/muddle-core",
     "crates/muddle-cli",
     "crates/muddle-mock-sim",

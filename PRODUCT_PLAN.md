@@ -73,6 +73,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - ASCII room cards
 - transcript recording
 - `muddle-mock-sim` stateful labyrinth fixture host
+- `muddle-banish-spike` Pilgrim Loss launcher adapter spike
 - CLI fixture play loop with named host selection
 
 ## Plan review
@@ -92,7 +93,8 @@ Recommended next sequence:
    AMAZE-like locks.
 4. Add a CLI renderer as the first playable surface over that adapter.
 5. Add adapter selection so `muddle-cli` can mount named hosts.
-6. Add one BANISH adapter spike and one AMAZE adapter spike.
+6. Replace the in-MUDDLE BANISH adapter spike with a BANISH-owned adapter once
+   BANISH exposes a library API, then add one AMAZE adapter spike.
 7. Add transcript replay/save-resume fixtures against those adapters.
 8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 
