@@ -73,7 +73,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - ASCII room cards
 - transcript recording
 - `muddle-mock-sim` stateful labyrinth fixture host
-- CLI fixture play loop
+- CLI fixture play loop with named host selection
 
 ## Plan review
 

@@ -138,7 +138,7 @@ impl MuddleSession {
         self.current_room = room_id.into();
     }
 
-    pub fn for_host(host: &impl MuddleHost) -> Result<Self, MuddleError> {
+    pub fn for_host<H: MuddleHost + ?Sized>(host: &H) -> Result<Self, MuddleError> {
         let start_room = host.start_room();
         if host.room(start_room).is_none() {
             return Err(MuddleError::InvalidStartRoom {
@@ -149,9 +149,9 @@ impl MuddleSession {
         Ok(Self::new(start_room))
     }
 
-    pub fn play_turn(
+    pub fn play_turn<H: MuddleHost + ?Sized>(
         &mut self,
-        host: &mut impl MuddleHost,
+        host: &mut H,
         command: MuddleCommand,
     ) -> Result<&MuddleTurn, MuddleError> {
         if host.room(&self.current_room).is_none() {

@@ -13,6 +13,8 @@ supported BANISH game or AMAZE escape room through host adapters.
 
 - Define the destination acceptance target in the README and product plan.
 - Make host selection the next CLI capability after the labyrinth mock sim.
+- Add `--host mock-labyrinth` and `--list-hosts` as the first host registry
+  interface.
 - Name BANISH and AMAZE adapter spikes as required before richer rendering.
 - Keep product rules in host repos and shared UX/session contracts in MUDDLE.
 

@@ -54,11 +54,13 @@ separate engine.
 
 ```powershell
 cargo run -p muddle-cli
+cargo run -p muddle-cli -- --list-hosts
+cargo run -p muddle-cli -- --host mock-labyrinth
 ```
 
-The CLI currently mounts `muddle-mock-sim`, a tiny labyrinth with a camp ember,
-glyph antechamber, sealed gate, and echo vault. That lets MUDDLE test a stateful
-host inside this repo before integrating BANISH or AMAZE.
+The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
+camp ember, glyph antechamber, sealed gate, and echo vault. That lets MUDDLE
+test named host mounting inside this repo before integrating BANISH or AMAZE.
 
 ## Host extension model
 
@@ -70,7 +72,7 @@ first wave. They provide explicit adapters that implement `MuddleHost`.
 | `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, and transcript behavior. |
 | `muddle-mock-sim` | Proves host-owned mutable labyrinth state, resources, locks, and command outcomes inside the MUDDLE workspace. |
 | Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |
-| Renderer | CLI first, richer TUI/window later; both call the same session and host APIs. |
+| Renderer | CLI first, richer TUI/window later; both select hosts and call the same session APIs. |
 
 The first integration shape should be in-process and explicit:
 
