@@ -16,6 +16,8 @@ can play a real product-style path by adapter name.
 - Register `banish-pilgrim-loss` in `muddle-cli`.
 - Cover launcher choice, campaign brief inspection, manifest readiness, trail
   entry, and visible-loss resolution with tests.
+- Add the first shared game-screen panels: host-provided resource/status counts
+  and ASCII maps rendered by the CLI.
 - Keep this spike in MUDDLE only until BANISH exposes a reusable library adapter
   crate.
 

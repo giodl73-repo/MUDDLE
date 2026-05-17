@@ -61,11 +61,23 @@ pub enum MuddleError {
 pub trait MuddleHost {
     fn start_room(&self) -> &str;
     fn room(&self, room_id: &str) -> Option<&MuddleRoom>;
+    fn resource_panel(&self) -> Vec<MuddleResource> {
+        Vec::new()
+    }
+    fn map_panel(&self, _current_room: &str) -> Option<String> {
+        None
+    }
     fn handle_command(
         &mut self,
         room_id: &str,
         command: &MuddleCommand,
     ) -> Result<MuddleCommandOutcome, MuddleError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleResource {
+    pub label: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

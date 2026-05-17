@@ -57,6 +57,7 @@ fn run_host(registration: HostRegistration) -> io::Result<()> {
     println!("Try: {}", registration.suggested_commands);
 
     loop {
+        print_play_panels(host.as_ref(), &session);
         print!("\n{}> ", session.current_room);
         io::stdout().flush()?;
 
@@ -79,6 +80,22 @@ fn run_host(registration: HostRegistration) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+fn print_play_panels(host: &dyn MuddleHost, session: &MuddleSession) {
+    let resources = host.resource_panel();
+    if !resources.is_empty() {
+        let status = resources
+            .iter()
+            .map(|resource| format!("{}={}", resource.label, resource.value))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        println!("\n[status] {status}");
+    }
+
+    if let Some(map) = host.map_panel(&session.current_room) {
+        println!("[map] {map}");
+    }
 }
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, String> {

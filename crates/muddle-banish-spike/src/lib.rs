@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use muddle_core::{
-    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleRoom,
+    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleResource,
+    MuddleRoom,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +129,52 @@ impl MuddleHost for BanishPilgrimLossHost {
         self.rooms.get(room_id)
     }
 
+    fn resource_panel(&self) -> Vec<MuddleResource> {
+        vec![
+            MuddleResource {
+                label: "seed".to_string(),
+                value: self.state.seed.clone(),
+            },
+            MuddleResource {
+                label: "priority".to_string(),
+                value: self.state.priority.clone(),
+            },
+            MuddleResource {
+                label: "choice".to_string(),
+                value: self
+                    .state
+                    .selected_choice
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            },
+            MuddleResource {
+                label: "manifest".to_string(),
+                value: if self.state.manifest_ready {
+                    "ready".to_string()
+                } else {
+                    "pending".to_string()
+                },
+            },
+            MuddleResource {
+                label: "session".to_string(),
+                value: if self.state.session_started {
+                    "started".to_string()
+                } else {
+                    "not-started".to_string()
+                },
+            },
+        ]
+    }
+
+    fn map_panel(&self, current_room: &str) -> Option<String> {
+        Some(format!(
+            "{} Launcher -- {} Brief -- {} Trail",
+            marker(current_room, "pilgrim-launcher"),
+            marker(current_room, "campaign-brief"),
+            marker(current_room, "migration-trail")
+        ))
+    }
+
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -181,6 +228,14 @@ impl MuddleHost for BanishPilgrimLossHost {
     }
 }
 
+fn marker(current_room: &str, room_id: &str) -> &'static str {
+    if current_room == room_id {
+        "@"
+    } else {
+        "o"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use muddle_core::MuddleSession;
@@ -213,6 +268,11 @@ mod tests {
         assert_eq!(host.state().selected_choice.as_deref(), Some("resume"));
         assert!(host.state().manifest_ready);
         assert!(host.state().session_started);
+        assert_eq!(host.resource_panel()[3].value, "ready");
+        assert!(host
+            .map_panel(&session.current_room)
+            .unwrap()
+            .contains("@ Trail"));
     }
 
     #[test]

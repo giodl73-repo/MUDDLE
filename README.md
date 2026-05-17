@@ -53,6 +53,13 @@ testing host adapters. A richer TUI/window renderer should come later as another
 surface over the same `muddle-core` session and host contracts, not as a
 separate engine.
 
+The shared play surface already has the first common game-screen panels:
+
+| Panel | Purpose |
+|---|---|
+| Status/resources | Host-provided counts and state such as embers, locks, seeds, manifests, or session status. |
+| Map | Host-provided ASCII location sketch with the current room marked as `@`. |
+
 ```powershell
 cargo run -p muddle-cli
 cargo run -p muddle-cli -- --list-hosts

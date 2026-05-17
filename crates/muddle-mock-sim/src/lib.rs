@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use muddle_core::{
-    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleRoom,
+    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleResource,
+    MuddleRoom,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +125,40 @@ impl MuddleHost for MuddleMockSimHost {
         self.rooms.get(room_id)
     }
 
+    fn resource_panel(&self) -> Vec<MuddleResource> {
+        vec![
+            MuddleResource {
+                label: "embers".to_string(),
+                value: self.state.ember_count.to_string(),
+            },
+            MuddleResource {
+                label: "glyphs".to_string(),
+                value: if self.state.glyphs_read {
+                    "read".to_string()
+                } else {
+                    "unread".to_string()
+                },
+            },
+            MuddleResource {
+                label: "gate".to_string(),
+                value: if self.state.gate_unlocked {
+                    "open".to_string()
+                } else {
+                    "sealed".to_string()
+                },
+            },
+        ]
+    }
+
+    fn map_panel(&self, current_room: &str) -> Option<String> {
+        Some(format!(
+            "{} Labyrinth Camp -- {} Glyph Antechamber -- {} Echo Vault",
+            marker(current_room, "labyrinth-camp"),
+            marker(current_room, "glyph-antechamber"),
+            marker(current_room, "echo-vault")
+        ))
+    }
+
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -187,6 +222,14 @@ impl MuddleHost for MuddleMockSimHost {
     }
 }
 
+fn marker(current_room: &str, room_id: &str) -> &'static str {
+    if current_room == room_id {
+        "@"
+    } else {
+        "o"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use muddle_core::MuddleSession;
@@ -224,6 +267,11 @@ mod tests {
                 gate_unlocked: true
             }
         );
+        assert_eq!(host.resource_panel()[2].value, "open");
+        assert!(host
+            .map_panel(&session.current_room)
+            .unwrap()
+            .contains("@ Echo Vault"));
     }
 
     #[test]

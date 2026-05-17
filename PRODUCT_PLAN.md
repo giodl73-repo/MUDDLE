@@ -21,6 +21,7 @@ escape room without becoming either product's engine.
 | BANISH mounting | A BANISH adapter exposes a playable game surface through `MuddleHost`. |
 | AMAZE mounting | An AMAZE adapter exposes escape rooms, clues, locks, and puzzle state through `MuddleHost`. |
 | Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
+| Game-screen panels | Hosts can provide resource/status counts and an ASCII map without custom renderer code. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
 | Product boundary | BANISH/AMAZE rules stay in their repos; MUDDLE owns only shared UX/session contracts. |
 
@@ -69,8 +70,11 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - `MuddleHost`
 - `MuddleStaticHost`
 - `MuddleCommandOutcome`
+- `MuddleResource`
 - explicit host/session errors
 - ASCII room cards
+- host-provided status/resource panels
+- host-provided map panels
 - transcript recording
 - `muddle-mock-sim` stateful labyrinth fixture host
 - `muddle-banish-spike` Pilgrim Loss launcher adapter spike
@@ -95,6 +99,8 @@ Recommended next sequence:
 5. Add adapter selection so `muddle-cli` can mount named hosts.
 6. Replace the in-MUDDLE BANISH adapter spike with a BANISH-owned adapter once
    BANISH exposes a library API, then add one AMAZE adapter spike.
+7. Expand panel contracts for inventories, objectives, and richer maps after two
+   host adapters prove the minimal status/map shape.
 7. Add transcript replay/save-resume fixtures against those adapters.
 8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 
