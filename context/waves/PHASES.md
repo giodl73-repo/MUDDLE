@@ -6,8 +6,11 @@
 | 2. Host adapters | Define adapter contracts for BANISH, AMAZE, and board-game hosts. | A host can mount a room and return deterministic command output. |
 | 3. Labyrinth mock sim | Add an in-repo stateful labyrinth host to test BANISH/AMAZE-style rules without depending on either repo. | Mock sim tests prove state changes, locks, and movement through `MuddleHost`. |
 | 4. CLI play surface | Add the first playable renderer over the host adapter seam. | `cargo run -p muddle-cli` can play a fixture room loop. |
-| 5. ASCII maps | Add deterministic map/card rendering. | Room graph renders in stable text output. |
-| 6. Save/resume | Add portable session persistence contracts. | A transcript can restore current room and state. |
-| 7. Rich renderer | Add a richer TUI/window surface once CLI contracts are stable. | The richer surface reuses `muddle-core` without duplicating engine rules. |
-| 8. Review gates | Integrate with product validation and RALLY where appropriate. | Product repos can validate mounted play flows. |
+| 5. Host selection | Let the CLI mount named host adapters without renderer-specific rules. | `muddle-cli` can select mock, BANISH, or AMAZE host surfaces by adapter name. |
+| 6. BANISH adapter spike | Mount one BANISH playable surface through `MuddleHost`. | A BANISH play path can be driven from MUDDLE and transcripted. |
+| 7. AMAZE adapter spike | Mount one AMAZE escape room through `MuddleHost`. | An escape-room path can be driven from MUDDLE and transcripted. |
+| 8. Save/resume | Add portable session persistence contracts. | A transcript can restore current room and state. |
+| 9. ASCII maps | Add deterministic map/card rendering beyond room cards. | Room graph renders in stable text output. |
+| 10. Rich renderer | Add a richer TUI/window surface once CLI contracts are stable. | The richer surface reuses `muddle-core` without duplicating engine rules. |
+| 11. Review gates | Integrate with product validation and RALLY where appropriate. | Product repos can validate mounted play flows. |
 

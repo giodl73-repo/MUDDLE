@@ -11,6 +11,19 @@ escape-room, and board-game experiences through product-owned adapters.
 A player can enter a room, read a stable text/ASCII view, issue commands, move
 between rooms, inspect state, and resume from a transcript-backed session.
 
+## Destination goal
+
+MUDDLE succeeds when one shared UX can play any supported BANISH game or AMAZE
+escape room without becoming either product's engine.
+
+| Destination capability | Acceptance signal |
+|---|---|
+| BANISH mounting | A BANISH adapter exposes a playable game surface through `MuddleHost`. |
+| AMAZE mounting | An AMAZE adapter exposes escape rooms, clues, locks, and puzzle state through `MuddleHost`. |
+| Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
+| Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
+| Product boundary | BANISH/AMAZE rules stay in their repos; MUDDLE owns only shared UX/session contracts. |
+
 ## Dependency placement
 
 MUDDLE is shared infrastructure. It sits beside RALLY, not inside it:
@@ -78,8 +91,10 @@ Recommended next sequence:
 3. Add a stateful labyrinth mock sim host that combines BANISH-like resources and
    AMAZE-like locks.
 4. Add a CLI renderer as the first playable surface over that adapter.
-5. Add transcript replay/save-resume fixtures against that adapter.
-6. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
+5. Add adapter selection so `muddle-cli` can mount named hosts.
+6. Add one BANISH adapter spike and one AMAZE adapter spike.
+7. Add transcript replay/save-resume fixtures against those adapters.
+8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 
 ## Loading and extension model
 

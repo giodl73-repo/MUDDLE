@@ -12,6 +12,22 @@ host their own playable experiences:
 | AMAZE | Escape-room rooms, locks, clues, and puzzle state. |
 | TIGRIS and board-game repos | Tables, turns, pieces, and scenario rooms. |
 
+## Destination
+
+MUDDLE's destination is one shared play surface where a player can launch and
+play any supported BANISH game or AMAZE escape room through the same commands,
+session model, transcript, and renderer.
+
+The acceptance target is:
+
+1. `muddle-cli` can select a mounted BANISH or AMAZE adapter.
+2. The same session loop can enter rooms, inspect state, issue host-defined
+   verbs, move between rooms, and record a transcript.
+3. BANISH and AMAZE keep their own content, rules, maps, locks, simulations, and
+   win conditions.
+4. MUDDLE owns only the shared room-command UX, renderer contracts, transcript,
+   save/resume shape, and host adapter API.
+
 ## Workspace
 
 MUDDLE is a Cargo workspace so the repo root stays explicit and Cargo does not
