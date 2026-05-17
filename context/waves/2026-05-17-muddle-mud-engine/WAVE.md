@@ -26,7 +26,8 @@ Create MUDDLE as a shared text/ASCII interaction engine for portfolio games.
 
 | Pulse | Status | Purpose |
 |---|---|---|
-| [Pulse 01 - Workspace and core rooms](pulses/pulse-01.md) | Active | Create the workspace and first product-neutral room/session model. |
+| [Pulse 01 - Workspace and core rooms](pulses/pulse-01.md) | Done | Create the workspace and first product-neutral room/session model. |
+| [Pulse 02 - Role contracts and plan review](pulses/pulse-02.md) | Active | Define MUDDLE delivery roles and sharpen the next adapter-first plan. |
 
 ## Validation
 

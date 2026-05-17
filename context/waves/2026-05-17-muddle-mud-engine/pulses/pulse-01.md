@@ -1,5 +1,9 @@
 # Pulse 01 - Workspace and Core Rooms
 
+## Status
+
+Done.
+
 ## Goal
 
 Create the MUDDLE workspace and first product-neutral room/session model.

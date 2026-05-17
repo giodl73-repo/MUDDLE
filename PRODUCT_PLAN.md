@@ -30,6 +30,18 @@ The first wave proves the product-neutral core:
 3. ASCII room card rendering.
 4. Host adapter contract for RALLY/BANISH/AMAZE later.
 
+## Role model
+
+MUDDLE uses `.roles/` to keep responsibilities explicit:
+
+| Role | Plan responsibility |
+|---|---|
+| Product steward | Protect the MUDDLE/RALLY/product boundary and wave scope. |
+| Core engineer | Build deterministic product-neutral contracts in `muddle-core`. |
+| Host adapter engineer | Define small mount contracts for BANISH, AMAZE, and board-game hosts. |
+| Playtest designer | Keep command vocabulary, ASCII views, and transcripts player-readable. |
+| Validation gatekeeper | Require deterministic tests, fixtures, and workspace isolation checks. |
+
 ## Current state
 
 `muddle-core` currently supports:
@@ -41,6 +53,22 @@ The first wave proves the product-neutral core:
 - `MuddleSession`
 - ASCII room cards
 - transcript recording
+
+## Plan review
+
+The current plan is correctly scoped for a shared UX engine: it starts with
+local rooms, commands, deterministic ASCII output, and transcripts before
+adapters or networking. The main gap is that the next pulse should prove a host
+adapter seam with a tiny fixture before adding more renderer features. That
+keeps MUDDLE from becoming BANISH-specific and gives AMAZE/board-game hosts the
+same contract.
+
+Recommended next sequence:
+
+1. Finish role contracts and mark the workspace/core-room pulse complete.
+2. Add a minimal host adapter trait and one in-repo fixture host.
+3. Add transcript replay/save-resume fixtures against that adapter.
+4. Only then expand ASCII maps beyond room cards.
 
 ## Non-goals
 
