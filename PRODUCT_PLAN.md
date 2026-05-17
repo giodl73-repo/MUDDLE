@@ -85,6 +85,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - AMAZE-owned `silverstream_muddle_host()` backed by AMAZE surface data
 - reusable `muddle-cli` runner entry points for product-owned launchers
 - portable command-transcript save/resume contracts
+- save/resume regression coverage in MUDDLE, BANISH, and AMAZE
 - product-owned `banish-muddle` and `amaze-muddle` binaries
 - CLI fixture play loop with named host selection
 
@@ -107,10 +108,9 @@ Recommended next sequence:
 5. Add adapter selection so `muddle-cli` can mount named hosts.
 6. Keep MUDDLE's CLI dependency-neutral by sharing its runner library with
    product-owned binaries such as `banish-muddle` and `amaze-muddle`.
-7. Add product-runner fixtures for save/resume across BANISH and AMAZE.
-8. Expand panel contracts for inventories, recent logs, and richer maps after two
+7. Expand panel contracts for inventories, recent logs, and richer maps after two
    host adapters prove the minimal status/map shape.
-9. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
+8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 
 ## Loading and extension model
 

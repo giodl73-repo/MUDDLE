@@ -258,4 +258,89 @@ mod tests {
         assert_eq!(options.load_path, Some(PathBuf::from("in.muddle")));
         assert_eq!(options.save_path, Some(PathBuf::from("out.muddle")));
     }
+
+    #[test]
+    fn runner_saves_and_loads_transcript_replay() {
+        let save_path = temp_save_path("runner-save-load");
+        let mut host = test_host();
+        let mut output = Vec::new();
+
+        let saved = run_muddle_host_with_options(
+            &mut host,
+            test_info(),
+            MuddleCliRunOptions {
+                load_path: None,
+                save_path: Some(save_path.clone()),
+            },
+            "go north\nquit\n".as_bytes(),
+            &mut output,
+        )
+        .expect("save run succeeds");
+
+        assert_eq!(saved.current_room, "north");
+        let encoded = fs::read_to_string(&save_path).expect("save file exists");
+        assert!(encoded.contains("current_room=north"));
+        assert!(encoded.contains("command=go north"));
+
+        let mut resumed_host = test_host();
+        let mut resumed_output = Vec::new();
+        let resumed = run_muddle_host_with_options(
+            &mut resumed_host,
+            test_info(),
+            MuddleCliRunOptions {
+                load_path: Some(save_path.clone()),
+                save_path: Some(save_path.clone()),
+            },
+            "look\nquit\n".as_bytes(),
+            &mut resumed_output,
+        )
+        .expect("load run succeeds");
+
+        let rendered = String::from_utf8(resumed_output).expect("runner writes utf8");
+        assert_eq!(resumed.current_room, "north");
+        assert_eq!(resumed.transcript.len(), 2);
+        assert!(rendered.contains("Loaded MUDDLE session"));
+
+        fs::remove_file(save_path).expect("save file can be removed");
+    }
+
+    fn test_info() -> MuddleCliHostInfo {
+        MuddleCliHostInfo {
+            name: "test-host",
+            description: "Test host.",
+            suggested_commands: "`look`, `go north`, `quit`.",
+        }
+    }
+
+    fn test_host() -> MuddleStaticHost {
+        MuddleStaticHost::try_new(
+            "entry",
+            [
+                MuddleRoom {
+                    id: "entry".to_string(),
+                    title: "Entry".to_string(),
+                    description: "A test entry.".to_string(),
+                    exits: vec![MuddleExit {
+                        command: "go north".to_string(),
+                        target_room: "north".to_string(),
+                        label: "North".to_string(),
+                    }],
+                },
+                MuddleRoom {
+                    id: "north".to_string(),
+                    title: "North".to_string(),
+                    description: "A test north room.".to_string(),
+                    exits: Vec::new(),
+                },
+            ],
+        )
+        .expect("static host is valid")
+    }
+
+    fn temp_save_path(name: &str) -> PathBuf {
+        let mut path = env::temp_dir();
+        path.push(format!("muddle-{name}-{}.muddle", std::process::id()));
+        let _ = fs::remove_file(&path);
+        path
+    }
 }
