@@ -77,6 +77,9 @@ pub trait MuddleHost {
     fn resource_panel(&self) -> Vec<MuddleResource> {
         Vec::new()
     }
+    fn inventory_panel(&self) -> Vec<MuddleInventoryItem> {
+        Vec::new()
+    }
     fn map_panel(&self, _current_room: &str) -> Option<String> {
         None
     }
@@ -97,6 +100,12 @@ pub trait MuddleHost {
 pub struct MuddleResource {
     pub label: String,
     pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleInventoryItem {
+    pub label: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

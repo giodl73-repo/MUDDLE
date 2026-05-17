@@ -74,6 +74,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - explicit host/session errors
 - ASCII room cards
 - host-provided status/resource panels
+- host-provided inventory panels
 - host-provided map panels
 - host-provided objective panels
 - host-provided command hint panels
@@ -109,7 +110,7 @@ Recommended next sequence:
 5. Add adapter selection so `muddle-cli` can mount named hosts.
 6. Keep MUDDLE's CLI dependency-neutral by sharing its runner library with
    product-owned binaries such as `banish-muddle` and `amaze-muddle`.
-7. Expand panel contracts for inventories, recent logs, and richer maps after two
+7. Expand panel contracts for richer maps after two
    host adapters prove the minimal status/map shape.
 8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 

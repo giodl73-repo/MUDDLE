@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use muddle_core::{
     MuddleCommand, MuddleCommandHint, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost,
-    MuddleResource, MuddleRoom,
+    MuddleInventoryItem, MuddleResource, MuddleRoom,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,6 +148,29 @@ impl MuddleHost for MuddleMockSimHost {
                 },
             },
         ]
+    }
+
+    fn inventory_panel(&self) -> Vec<MuddleInventoryItem> {
+        let mut items = vec![MuddleInventoryItem {
+            label: "map scrap".to_string(),
+            detail: "route to the glyph gate".to_string(),
+        }];
+
+        if self.state.ember_count > 0 {
+            items.push(MuddleInventoryItem {
+                label: "banked ember".to_string(),
+                detail: "opens one sealed gate".to_string(),
+            });
+        }
+
+        if self.state.glyphs_read {
+            items.push(MuddleInventoryItem {
+                label: "glyph clue".to_string(),
+                detail: "feed an ember to wake the gate".to_string(),
+            });
+        }
+
+        items
     }
 
     fn map_panel(&self, current_room: &str) -> Option<String> {

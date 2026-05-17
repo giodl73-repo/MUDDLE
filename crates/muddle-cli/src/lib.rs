@@ -174,6 +174,22 @@ pub fn write_play_panels<W: Write>(
         writeln!(output, "\n[status] {status}")?;
     }
 
+    let inventory = host.inventory_panel();
+    if !inventory.is_empty() {
+        let inventory_text = inventory
+            .iter()
+            .map(|item| {
+                if item.detail.is_empty() {
+                    item.label.clone()
+                } else {
+                    format!("{} ({})", item.label, item.detail)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" | ");
+        writeln!(output, "[inventory] {inventory_text}")?;
+    }
+
     if let Some(map) = host.map_panel(&session.current_room) {
         writeln!(output, "[map] {map}")?;
     }
@@ -292,6 +308,18 @@ mod tests {
         let rendered = String::from_utf8(output).expect("panels are utf8");
 
         assert!(rendered.contains("[recent] look: + Entry | go north: You move to North."));
+    }
+
+    #[test]
+    fn writes_inventory_panel_when_host_provides_items() {
+        let host = muddle_mock_sim::MuddleMockSimHost::new();
+        let session = MuddleSession::for_host(&host).expect("session starts");
+        let mut output = Vec::new();
+
+        write_play_panels(&mut output, &host, &session).expect("panels render");
+        let rendered = String::from_utf8(output).expect("panels are utf8");
+
+        assert!(rendered.contains("[inventory] map scrap (route to the glyph gate)"));
     }
 
     #[test]
