@@ -1,0 +1,4 @@
+[workspace]
+members = ["crates/muddle-core"]
+resolver = "2"
+
