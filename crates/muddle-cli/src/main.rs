@@ -2,7 +2,7 @@ use std::{env, io};
 
 use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
-use muddle_cli::{run_muddle_host, MuddleCliHostInfo};
+use muddle_cli::{run_muddle_host_with_options, MuddleCliHostInfo, MuddleCliRunOptions};
 use muddle_core::MuddleHost;
 use muddle_mock_sim::MuddleMockSimHost;
 
@@ -17,7 +17,10 @@ struct HostRegistration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CliAction {
-    Run { host_name: String },
+    Run {
+        host_name: String,
+        options: MuddleCliRunOptions,
+    },
     ListHosts,
 }
 
@@ -33,21 +36,28 @@ fn main() -> io::Result<()> {
             print_hosts();
             Ok(())
         }
-        CliAction::Run { host_name } => {
+        CliAction::Run { host_name, options } => {
             let registration = find_host(&host_name).ok_or_else(|| {
                 let message = format!("Unknown MUDDLE host `{host_name}`.");
                 eprintln!("{message}");
                 print_hosts();
                 io::Error::new(io::ErrorKind::InvalidInput, message)
             })?;
-            run_host(registration)
+            run_host(registration, options)
         }
     }
 }
 
-fn run_host(registration: HostRegistration) -> io::Result<()> {
+fn run_host(registration: HostRegistration, options: MuddleCliRunOptions) -> io::Result<()> {
     let mut host = (registration.create)();
-    run_muddle_host(host.as_mut(), registration.info()).map(|_| ())
+    run_muddle_host_with_options(
+        host.as_mut(),
+        registration.info(),
+        options,
+        io::stdin().lock(),
+        io::stdout().lock(),
+    )
+    .map(|_| ())
 }
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, String> {
@@ -55,6 +65,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, Strin
     let _program = args.next();
 
     let mut host_name = DEFAULT_HOST.to_string();
+    let mut options = MuddleCliRunOptions::default();
     while let Some(arg) = args.next() {
         if arg == "--list-hosts" {
             return Ok(CliAction::ListHosts);
@@ -75,10 +86,28 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, Strin
             continue;
         }
 
+        if arg == "--save" {
+            options.save_path = Some(
+                args.next()
+                    .ok_or_else(|| "`--save` requires a path.".to_string())?
+                    .into(),
+            );
+            continue;
+        }
+
+        if arg == "--load" {
+            options.load_path = Some(
+                args.next()
+                    .ok_or_else(|| "`--load` requires a path.".to_string())?
+                    .into(),
+            );
+            continue;
+        }
+
         return Err(format!("Unknown argument `{arg}`."));
     }
 
-    Ok(CliAction::Run { host_name })
+    Ok(CliAction::Run { host_name, options })
 }
 
 fn find_host(name: &str) -> Option<HostRegistration> {
@@ -124,7 +153,7 @@ impl HostRegistration {
 }
 
 fn print_host_usage() {
-    eprintln!("Usage: muddle-cli [--host <name>] [--list-hosts]");
+    eprintln!("Usage: muddle-cli [--host <name>] [--save <path>] [--load <path>] [--list-hosts]");
 }
 
 fn print_hosts() {
@@ -143,7 +172,8 @@ mod tests {
         assert_eq!(
             parse_args(["muddle-cli"].into_iter().map(String::from)),
             Ok(CliAction::Run {
-                host_name: "mock-labyrinth".to_string()
+                host_name: "mock-labyrinth".to_string(),
+                options: MuddleCliRunOptions::default()
             })
         );
     }
@@ -157,7 +187,34 @@ mod tests {
                     .map(String::from)
             ),
             Ok(CliAction::Run {
-                host_name: "banish-pilgrim-loss".to_string()
+                host_name: "banish-pilgrim-loss".to_string(),
+                options: MuddleCliRunOptions::default()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_save_and_load_paths() {
+        assert_eq!(
+            parse_args(
+                [
+                    "muddle-cli",
+                    "--host",
+                    "mock-labyrinth",
+                    "--save",
+                    "save.muddle",
+                    "--load",
+                    "load.muddle"
+                ]
+                .into_iter()
+                .map(String::from)
+            ),
+            Ok(CliAction::Run {
+                host_name: "mock-labyrinth".to_string(),
+                options: MuddleCliRunOptions {
+                    save_path: Some("save.muddle".into()),
+                    load_path: Some("load.muddle".into())
+                }
             })
         );
     }

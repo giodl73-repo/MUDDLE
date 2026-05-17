@@ -35,6 +35,12 @@ pub struct MuddleSession {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleSessionSave {
+    pub current_room: String,
+    pub commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MuddleCommandOutcome {
     pub response: String,
     pub next_room: Option<String>,
@@ -55,6 +61,13 @@ pub enum MuddleError {
     UnknownCommand {
         room_id: String,
         command: MuddleCommand,
+    },
+    InvalidSessionSave {
+        message: String,
+    },
+    ResumeRoomMismatch {
+        expected_room: String,
+        actual_room: String,
     },
 }
 
@@ -208,6 +221,93 @@ impl MuddleSession {
 
         Ok(&self.transcript[turn_index])
     }
+
+    pub fn save(&self) -> MuddleSessionSave {
+        MuddleSessionSave {
+            current_room: self.current_room.clone(),
+            commands: self
+                .transcript
+                .iter()
+                .map(|turn| turn.command.normalized())
+                .collect(),
+        }
+    }
+
+    pub fn resume_for_host<H: MuddleHost + ?Sized>(
+        host: &mut H,
+        save: &MuddleSessionSave,
+    ) -> Result<Self, MuddleError> {
+        let mut session = Self::for_host(host)?;
+        for command in &save.commands {
+            session.play_turn(host, MuddleCommand::parse(command))?;
+        }
+
+        if session.current_room != save.current_room {
+            return Err(MuddleError::ResumeRoomMismatch {
+                expected_room: save.current_room.clone(),
+                actual_room: session.current_room,
+            });
+        }
+
+        Ok(session)
+    }
+}
+
+impl MuddleSessionSave {
+    const HEADER: &'static str = "MUDDLE_SESSION_V1";
+
+    pub fn encode(&self) -> String {
+        let mut lines = vec![
+            Self::HEADER.to_string(),
+            format!("current_room={}", encode_field(&self.current_room)),
+        ];
+        lines.extend(
+            self.commands
+                .iter()
+                .map(|command| format!("command={}", encode_field(command))),
+        );
+        lines.join("\n")
+    }
+
+    pub fn decode(input: &str) -> Result<Self, MuddleError> {
+        let mut lines = input.lines();
+        match lines.next() {
+            Some(Self::HEADER) => {}
+            _ => {
+                return Err(MuddleError::InvalidSessionSave {
+                    message: "missing MUDDLE_SESSION_V1 header".to_string(),
+                });
+            }
+        }
+
+        let current_room_line = lines
+            .next()
+            .ok_or_else(|| MuddleError::InvalidSessionSave {
+                message: "missing current_room line".to_string(),
+            })?;
+        let current_room = current_room_line
+            .strip_prefix("current_room=")
+            .ok_or_else(|| MuddleError::InvalidSessionSave {
+                message: "current_room line is malformed".to_string(),
+            })
+            .and_then(decode_field)?;
+
+        let mut commands = Vec::new();
+        for line in lines {
+            let command = line
+                .strip_prefix("command=")
+                .ok_or_else(|| MuddleError::InvalidSessionSave {
+                    message: format!("unexpected save line `{line}`"),
+                })
+                .and_then(decode_field)?;
+            commands.push(command);
+        }
+
+        Ok(Self {
+            current_room,
+            commands,
+        })
+    }
 }
 
 impl MuddleCommandOutcome {
@@ -245,6 +345,48 @@ impl MuddleStaticHost {
 
         Ok(Self { start_room, rooms })
     }
+}
+
+fn encode_field(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\n', "%0A")
+        .replace('\r', "%0D")
+        .replace('=', "%3D")
+}
+
+fn decode_field(value: &str) -> Result<String, MuddleError> {
+    let mut decoded = String::new();
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            decoded.push(ch);
+            continue;
+        }
+
+        let hi = chars
+            .next()
+            .ok_or_else(|| MuddleError::InvalidSessionSave {
+                message: "incomplete percent escape".to_string(),
+            })?;
+        let lo = chars
+            .next()
+            .ok_or_else(|| MuddleError::InvalidSessionSave {
+                message: "incomplete percent escape".to_string(),
+            })?;
+        match (hi, lo) {
+            ('2', '5') => decoded.push('%'),
+            ('0', 'A') => decoded.push('\n'),
+            ('0', 'D') => decoded.push('\r'),
+            ('3', 'D') => decoded.push('='),
+            _ => {
+                return Err(MuddleError::InvalidSessionSave {
+                    message: format!("unknown percent escape %{hi}{lo}"),
+                });
+            }
+        }
+    }
+    Ok(decoded)
 }
 
 impl MuddleHost for MuddleStaticHost {
@@ -335,6 +477,76 @@ mod tests {
 
         assert_eq!(session.transcript.len(), 1);
         assert_eq!(session.current_room, "pilgrim-road");
+    }
+
+    #[test]
+    fn encodes_and_decodes_session_saves() {
+        let save = MuddleSessionSave {
+            current_room: "north=gate".to_string(),
+            commands: vec!["look".to_string(), "go north%gate".to_string()],
+        };
+
+        assert_eq!(MuddleSessionSave::decode(&save.encode()), Ok(save));
+    }
+
+    #[test]
+    fn resumes_session_by_replaying_commands() {
+        let mut host = MuddleStaticHost::try_new(
+            "campfire",
+            [
+                MuddleRoom {
+                    id: "campfire".to_string(),
+                    title: "Campfire".to_string(),
+                    description: "Start.".to_string(),
+                    exits: vec![MuddleExit {
+                        command: "go road".to_string(),
+                        target_room: "road".to_string(),
+                        label: "Road".to_string(),
+                    }],
+                },
+                MuddleRoom {
+                    id: "road".to_string(),
+                    title: "Road".to_string(),
+                    description: "Away.".to_string(),
+                    exits: Vec::new(),
+                },
+            ],
+        )
+        .expect("host is valid");
+
+        let mut session = MuddleSession::for_host(&host).expect("session starts");
+        session
+            .play_turn(&mut host, MuddleCommand::parse("go road"))
+            .expect("turn plays");
+
+        let save = session.save();
+        let mut fresh_host = MuddleStaticHost::try_new(
+            "campfire",
+            [
+                MuddleRoom {
+                    id: "campfire".to_string(),
+                    title: "Campfire".to_string(),
+                    description: "Start.".to_string(),
+                    exits: vec![MuddleExit {
+                        command: "go road".to_string(),
+                        target_room: "road".to_string(),
+                        label: "Road".to_string(),
+                    }],
+                },
+                MuddleRoom {
+                    id: "road".to_string(),
+                    title: "Road".to_string(),
+                    description: "Away.".to_string(),
+                    exits: Vec::new(),
+                },
+            ],
+        )
+        .expect("fresh host is valid");
+        let resumed =
+            MuddleSession::resume_for_host(&mut fresh_host, &save).expect("session resumes");
+
+        assert_eq!(resumed.current_room, "road");
+        assert_eq!(resumed.transcript.len(), 1);
     }
 
     #[test]
