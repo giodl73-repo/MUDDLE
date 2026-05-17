@@ -9,6 +9,8 @@ and outcomes through MUDDLE without moving product rules into MUDDLE.
 
 - Design host adapter traits and fixtures for BANISH, AMAZE, and board-game
   hosts.
+- Keep first-wave host loading explicit and in-process through crates that
+  implement `MuddleHost`.
 - Keep RALLY integration optional until a real adapter proves the dependency.
 - Document how hosts expose room graphs, command handlers, player state, and
   transcript replay hooks.
@@ -20,3 +22,5 @@ and outcomes through MUDDLE without moving product rules into MUDDLE.
 - Does the host retain ownership of maps, puzzles, simulation state, and win
   conditions?
 - Can the adapter run locally without networking or account infrastructure?
+- Is there a reason to add dynamic plugin loading now, or can an explicit crate
+  dependency prove the contract first?

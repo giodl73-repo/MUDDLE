@@ -25,7 +25,42 @@ Current crates:
 
 | Crate | Purpose |
 |---|---|
-| `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, and transcripts. |
+| `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, transcripts, and host adapter contracts. |
+| `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
+
+## UX direction
+
+MUDDLE starts with CLI because it is deterministic, scriptable, and useful for
+testing host adapters. A richer TUI/window renderer should come later as another
+surface over the same `muddle-core` session and host contracts, not as a
+separate engine.
+
+```powershell
+cargo run -p muddle-cli
+```
+
+## Host extension model
+
+BANISH, AMAZE, and other products do not get loaded as generic plugins in the
+first wave. They provide explicit adapters that implement `MuddleHost`.
+
+| Layer | Responsibility |
+|---|---|
+| `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, and transcript behavior. |
+| Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |
+| Renderer | CLI first, richer TUI/window later; both call the same session and host APIs. |
+
+The first integration shape should be in-process and explicit:
+
+```rust
+let mut host = banish_muddle::BanishHost::new(...);
+let mut session = MuddleSession::for_host(&host)?;
+session.play_turn(&mut host, MuddleCommand::parse("look"))?;
+```
+
+This keeps domain rules in the host repo. BANISH owns settlement state and
+verbs; AMAZE owns locks, clues, and puzzle state. MUDDLE only requires that the
+host can expose the current room and produce deterministic command outcomes.
 
 ## Product boundary
 

@@ -28,7 +28,8 @@ The first wave proves the product-neutral core:
 1. Workspace and core room model.
 2. Command parser and transcript session.
 3. ASCII room card rendering.
-4. Host adapter contract for RALLY/BANISH/AMAZE later.
+4. Host adapter contract for product repos.
+5. CLI renderer as the first playable surface.
 
 ## Role model
 
@@ -51,8 +52,13 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - `MuddleCommand`
 - `MuddleTurn`
 - `MuddleSession`
+- `MuddleHost`
+- `MuddleStaticHost`
+- `MuddleCommandOutcome`
+- explicit host/session errors
 - ASCII room cards
 - transcript recording
+- CLI fixture play loop
 
 ## Plan review
 
@@ -67,8 +73,26 @@ Recommended next sequence:
 
 1. Finish role contracts and mark the workspace/core-room pulse complete.
 2. Add a minimal host adapter trait and one in-repo fixture host.
-3. Add transcript replay/save-resume fixtures against that adapter.
-4. Only then expand ASCII maps beyond room cards.
+3. Add a CLI renderer as the first playable surface over that adapter.
+4. Add transcript replay/save-resume fixtures against that adapter.
+5. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
+
+## Loading and extension model
+
+MUDDLE should load host experiences through explicit adapter crates, not through
+implicit plugin discovery in the first wave. Each product repo owns a small
+MUDDLE-facing adapter:
+
+| Host | Adapter responsibility |
+|---|---|
+| BANISH | Expose settlement/play rooms, available exits, BANISH-specific verbs, and command outcomes. |
+| AMAZE | Expose escape rooms, locks, clues, puzzle state, and command outcomes. |
+| Board-game hosts | Expose tables, seats, pieces, legal moves, and turn outcomes. |
+
+The adapter implements `MuddleHost`; renderers such as `muddle-cli` or a future
+rich TUI/window only talk to `muddle-core`. If a later use case needs dynamic
+loading, it should be added after at least one in-process host adapter proves the
+contract.
 
 ## Non-goals
 
@@ -76,6 +100,8 @@ Recommended next sequence:
 - No product-specific game rules in `muddle-core`.
 - No renderer beyond deterministic text/ASCII output until host contracts are
   proven.
+- No rich window/TUI renderer until the CLI and adapter seam are stable.
+- No dynamic plugin loading until explicit in-process adapters have been proven.
 - No runtime dependency on RALLY until a real adapter proves the boundary.
 
 ## Validation

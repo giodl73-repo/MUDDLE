@@ -1,4 +1,3 @@
 [workspace]
-members = ["crates/muddle-core"]
+members = ["crates/muddle-core", "crates/muddle-cli"]
 resolver = "2"
-
