@@ -1,13 +1,15 @@
 use std::io::{self, Write};
 
-use muddle_core::{MuddleCommand, MuddleExit, MuddleRoom, MuddleSession, MuddleStaticHost};
+use muddle_core::{MuddleCommand, MuddleSession};
+use muddle_mock_sim::MuddleMockSimHost;
 
 fn main() -> io::Result<()> {
-    let mut host = fixture_host();
+    let mut host = MuddleMockSimHost::new();
     let mut session = MuddleSession::for_host(&host).expect("fixture host must have a start room");
 
     println!("MUDDLE CLI");
-    println!("Type `look`, `go road`, `go camp`, or `quit`.");
+    println!("Labyrinth mock sim mounted.");
+    println!("Try: `look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`, `quit`.");
 
     loop {
         print!("\n{}> ", session.current_room);
@@ -32,33 +34,4 @@ fn main() -> io::Result<()> {
     }
 
     Ok(())
-}
-
-fn fixture_host() -> MuddleStaticHost {
-    MuddleStaticHost::try_new(
-        "campfire",
-        vec![
-            MuddleRoom {
-                id: "campfire".to_string(),
-                title: "Campfire".to_string(),
-                description: "A shared starting room for playable sims.".to_string(),
-                exits: vec![MuddleExit {
-                    command: "go road".to_string(),
-                    target_room: "pilgrim-road".to_string(),
-                    label: "Pilgrim Road".to_string(),
-                }],
-            },
-            MuddleRoom {
-                id: "pilgrim-road".to_string(),
-                title: "Pilgrim Road".to_string(),
-                description: "A road owned by a host repo in real integrations.".to_string(),
-                exits: vec![MuddleExit {
-                    command: "go camp".to_string(),
-                    target_room: "campfire".to_string(),
-                    label: "Campfire".to_string(),
-                }],
-            },
-        ],
-    )
-    .expect("fixture rooms include the start room")
 }

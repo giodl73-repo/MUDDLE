@@ -26,6 +26,7 @@ Current crates:
 | Crate | Purpose |
 |---|---|
 | `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, transcripts, and host adapter contracts. |
+| `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
 
 ## UX direction
@@ -39,6 +40,10 @@ separate engine.
 cargo run -p muddle-cli
 ```
 
+The CLI currently mounts `muddle-mock-sim`, a tiny labyrinth with a camp ember,
+glyph antechamber, sealed gate, and echo vault. That lets MUDDLE test a stateful
+host inside this repo before integrating BANISH or AMAZE.
+
 ## Host extension model
 
 BANISH, AMAZE, and other products do not get loaded as generic plugins in the
@@ -47,6 +52,7 @@ first wave. They provide explicit adapters that implement `MuddleHost`.
 | Layer | Responsibility |
 |---|---|
 | `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, and transcript behavior. |
+| `muddle-mock-sim` | Proves host-owned mutable labyrinth state, resources, locks, and command outcomes inside the MUDDLE workspace. |
 | Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |
 | Renderer | CLI first, richer TUI/window later; both call the same session and host APIs. |
 

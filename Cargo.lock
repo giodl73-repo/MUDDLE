@@ -7,8 +7,16 @@ name = "muddle-cli"
 version = "0.1.0"
 dependencies = [
  "muddle-core",
+ "muddle-mock-sim",
 ]
 
 [[package]]
 name = "muddle-core"
 version = "0.1.0"
+
+[[package]]
+name = "muddle-mock-sim"
+version = "0.1.0"
+dependencies = [
+ "muddle-core",
+]

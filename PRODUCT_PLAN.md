@@ -29,7 +29,8 @@ The first wave proves the product-neutral core:
 2. Command parser and transcript session.
 3. ASCII room card rendering.
 4. Host adapter contract for product repos.
-5. CLI renderer as the first playable surface.
+5. Labyrinth mock sim host for local BANISH/AMAZE-style adapter testing.
+6. CLI renderer as the first playable surface.
 
 ## Role model
 
@@ -58,6 +59,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - explicit host/session errors
 - ASCII room cards
 - transcript recording
+- `muddle-mock-sim` stateful labyrinth fixture host
 - CLI fixture play loop
 
 ## Plan review
@@ -73,9 +75,11 @@ Recommended next sequence:
 
 1. Finish role contracts and mark the workspace/core-room pulse complete.
 2. Add a minimal host adapter trait and one in-repo fixture host.
-3. Add a CLI renderer as the first playable surface over that adapter.
-4. Add transcript replay/save-resume fixtures against that adapter.
-5. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
+3. Add a stateful labyrinth mock sim host that combines BANISH-like resources and
+   AMAZE-like locks.
+4. Add a CLI renderer as the first playable surface over that adapter.
+5. Add transcript replay/save-resume fixtures against that adapter.
+6. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
 
 ## Loading and extension model
 

@@ -1,8 +1,7 @@
 [package]
-name = "muddle-cli"
+name = "muddle-mock-sim"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 muddle-core = { path = "../muddle-core" }
-muddle-mock-sim = { path = "../muddle-mock-sim" }
