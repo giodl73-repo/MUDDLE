@@ -1,11 +1,9 @@
-use std::{
-    env,
-    io::{self, Write},
-};
+use std::{env, io};
 
 use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
-use muddle_core::{MuddleCommand, MuddleHost, MuddleSession};
+use muddle_cli::{run_muddle_host, MuddleCliHostInfo};
+use muddle_core::MuddleHost;
 use muddle_mock_sim::MuddleMockSimHost;
 
 const DEFAULT_HOST: &str = "mock-labyrinth";
@@ -49,69 +47,7 @@ fn main() -> io::Result<()> {
 
 fn run_host(registration: HostRegistration) -> io::Result<()> {
     let mut host = (registration.create)();
-    let mut session =
-        MuddleSession::for_host(host.as_ref()).expect("registered host must expose a start room");
-
-    println!("MUDDLE CLI");
-    println!("Host mounted: {}", registration.name);
-    println!("{}", registration.description);
-    println!("Try: {}", registration.suggested_commands);
-
-    loop {
-        print_play_panels(host.as_ref(), &session);
-        print!("\n{}> ", session.current_room);
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        let bytes_read = io::stdin().read_line(&mut input)?;
-        if bytes_read == 0 {
-            break;
-        }
-
-        let input = input.trim();
-        if input.eq_ignore_ascii_case("quit") || input.eq_ignore_ascii_case("exit") {
-            println!("Transcript turns: {}", session.transcript.len());
-            break;
-        }
-
-        match session.play_turn(host.as_mut(), MuddleCommand::parse(input)) {
-            Ok(turn) => println!("{}", turn.response),
-            Err(error) => println!("Command failed: {error:?}"),
-        }
-    }
-
-    Ok(())
-}
-
-fn print_play_panels(host: &dyn MuddleHost, session: &MuddleSession) {
-    let resources = host.resource_panel();
-    if !resources.is_empty() {
-        let status = resources
-            .iter()
-            .map(|resource| format!("{}={}", resource.label, resource.value))
-            .collect::<Vec<_>>()
-            .join(" | ");
-        println!("\n[status] {status}");
-    }
-
-    if let Some(map) = host.map_panel(&session.current_room) {
-        println!("[map] {map}");
-    }
-
-    let objectives = host.objective_panel(&session.current_room);
-    if !objectives.is_empty() {
-        println!("[objectives] {}", objectives.join(" | "));
-    }
-
-    let commands = host.command_panel(&session.current_room);
-    if !commands.is_empty() {
-        let command_text = commands
-            .iter()
-            .map(|hint| format!("{} ({})", hint.command, hint.description))
-            .collect::<Vec<_>>()
-            .join(" | ");
-        println!("[commands] {command_text}");
-    }
+    run_muddle_host(host.as_mut(), registration.info()).map(|_| ())
 }
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, String> {
@@ -175,6 +111,16 @@ fn host_registry() -> Vec<HostRegistration> {
             create: || Box::new(AmazeSilverstreamHost::new()),
         },
     ]
+}
+
+impl HostRegistration {
+    fn info(&self) -> MuddleCliHostInfo {
+        MuddleCliHostInfo {
+            name: self.name,
+            description: self.description,
+            suggested_commands: self.suggested_commands,
+        }
+    }
 }
 
 fn print_host_usage() {
