@@ -83,6 +83,8 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - `muddle-amaze-spike` Silverstream escape-room adapter spike
 - BANISH-owned `pilgrim_loss_muddle_host()` backed by BANISH surface data
 - AMAZE-owned `silverstream_muddle_host()` backed by AMAZE surface data
+- reusable `muddle-cli` runner entry points for product-owned launchers
+- product-owned `banish-muddle` and `amaze-muddle` binaries
 - CLI fixture play loop with named host selection
 
 ## Plan review
@@ -102,9 +104,8 @@ Recommended next sequence:
    AMAZE-like locks.
 4. Add a CLI renderer as the first playable surface over that adapter.
 5. Add adapter selection so `muddle-cli` can mount named hosts.
-6. Wire the CLI to the product-owned BANISH and AMAZE adapters now backed by
-   `pilgrim_loss_muddle_host()` and `silverstream_muddle_host()`, after settling
-   the dependency direction.
+6. Keep MUDDLE's CLI dependency-neutral by sharing its runner library with
+   product-owned binaries such as `banish-muddle` and `amaze-muddle`.
 7. Expand panel contracts for inventories, recent logs, and richer maps after two
    host adapters prove the minimal status/map shape.
 8. Add transcript replay/save-resume fixtures against those adapters.
@@ -122,10 +123,12 @@ MUDDLE-facing adapter:
 | AMAZE | Expose escape rooms, locks, clues, puzzle state, and command outcomes. |
 | Board-game hosts | Expose tables, seats, pieces, legal moves, and turn outcomes. |
 
-The adapter implements `MuddleHost`; renderers such as `muddle-cli` or a future
-rich TUI/window only talk to `muddle-core`. If a later use case needs dynamic
-loading, it should be added after at least one in-process host adapter proves the
-contract.
+The adapter implements `MuddleHost`; renderers such as `muddle-cli`, product
+launcher binaries, or a future rich TUI/window only talk to MUDDLE crates. MUDDLE
+must not depend back on product repos, so product-owned launchers consume the
+reusable CLI runner instead of being registered directly inside MUDDLE's workspace
+CLI. If a later use case needs dynamic loading, it should be added after at least
+one in-process host adapter proves the contract.
 
 ## Non-goals
 
