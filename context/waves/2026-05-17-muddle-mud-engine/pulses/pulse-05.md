@@ -18,6 +18,8 @@ can play a real product-style path by adapter name.
   entry, and visible-loss resolution with tests.
 - Add the first shared game-screen panels: host-provided resource/status counts
   and ASCII maps rendered by the CLI.
+- Add objective and contextual command panels so players can see goals and valid
+  verbs without guessing.
 - Keep this spike in MUDDLE only until BANISH exposes a reusable library adapter
   crate.
 

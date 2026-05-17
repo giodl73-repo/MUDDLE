@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use muddle_core::{
-    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleResource,
-    MuddleRoom,
+    MuddleCommand, MuddleCommandHint, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost,
+    MuddleResource, MuddleRoom,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,6 +159,71 @@ impl MuddleHost for MuddleMockSimHost {
         ))
     }
 
+    fn objective_panel(&self, current_room: &str) -> Vec<String> {
+        match current_room {
+            "labyrinth-camp" if self.state.ember_count == 0 => {
+                vec!["Gather an ember before entering the maze.".to_string()]
+            }
+            "labyrinth-camp" => vec!["Carry the ember into the glyph antechamber.".to_string()],
+            "glyph-antechamber" if !self.state.glyphs_read => {
+                vec!["Read the glyphs to learn how the sealed gate works.".to_string()]
+            }
+            "glyph-antechamber" if !self.state.gate_unlocked => {
+                vec!["Use the ember to open the vault gate.".to_string()]
+            }
+            "glyph-antechamber" => vec!["Enter the echo vault.".to_string()],
+            "echo-vault" => vec!["Labyrinth complete; review the transcript.".to_string()],
+            _ => Vec::new(),
+        }
+    }
+
+    fn command_panel(&self, current_room: &str) -> Vec<MuddleCommandHint> {
+        let mut commands = vec![MuddleCommandHint {
+            command: "look".to_string(),
+            description: "Show the current room card.".to_string(),
+        }];
+
+        match current_room {
+            "labyrinth-camp" => {
+                commands.push(MuddleCommandHint {
+                    command: "gather ember".to_string(),
+                    description: "Collect the resource used to open the gate.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go antechamber".to_string(),
+                    description: "Enter the glyph antechamber.".to_string(),
+                });
+            }
+            "glyph-antechamber" => {
+                commands.push(MuddleCommandHint {
+                    command: "inspect glyphs".to_string(),
+                    description: "Read the lock clue.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "use ember".to_string(),
+                    description: "Try to power the sealed gate.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go vault".to_string(),
+                    description: "Enter the vault if it is open.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go camp".to_string(),
+                    description: "Return to camp.".to_string(),
+                });
+            }
+            "echo-vault" => {
+                commands.push(MuddleCommandHint {
+                    command: "go antechamber".to_string(),
+                    description: "Return to the antechamber.".to_string(),
+                });
+            }
+            _ => {}
+        }
+
+        commands
+    }
+
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -272,6 +337,10 @@ mod tests {
             .map_panel(&session.current_room)
             .unwrap()
             .contains("@ Echo Vault"));
+        assert_eq!(
+            host.objective_panel(&session.current_room),
+            vec!["Labyrinth complete; review the transcript.".to_string()]
+        );
     }
 
     #[test]

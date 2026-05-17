@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use muddle_core::{
-    MuddleCommand, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost, MuddleResource,
-    MuddleRoom,
+    MuddleCommand, MuddleCommandHint, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost,
+    MuddleResource, MuddleRoom,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +175,73 @@ impl MuddleHost for BanishPilgrimLossHost {
         ))
     }
 
+    fn objective_panel(&self, current_room: &str) -> Vec<String> {
+        match current_room {
+            "pilgrim-launcher" if !self.state.session_started => {
+                vec!["Choose resume to start the Pilgrim Loss launcher session.".to_string()]
+            }
+            "campaign-brief" if !self.state.manifest_ready => {
+                vec!["Inspect the plan and manifest before entering the trail.".to_string()]
+            }
+            "campaign-brief" => vec!["Enter the migration trail.".to_string()],
+            "migration-trail" => {
+                vec!["Resolve the visible loss beat and preserve continuity.".to_string()]
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn command_panel(&self, current_room: &str) -> Vec<MuddleCommandHint> {
+        let mut commands = vec![MuddleCommandHint {
+            command: "look".to_string(),
+            description: "Show the current room card.".to_string(),
+        }];
+
+        match current_room {
+            "pilgrim-launcher" => {
+                commands.push(MuddleCommandHint {
+                    command: "choose resume".to_string(),
+                    description: "Select the launcher resume action.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go brief".to_string(),
+                    description: "Open the campaign brief.".to_string(),
+                });
+            }
+            "campaign-brief" => {
+                commands.push(MuddleCommandHint {
+                    command: "inspect plan".to_string(),
+                    description: "Review pack, route, and anchor choices.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "inspect manifest".to_string(),
+                    description: "Prepare the save/replay manifest.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go trail".to_string(),
+                    description: "Enter the playable migration slice.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go launcher".to_string(),
+                    description: "Return to the launcher.".to_string(),
+                });
+            }
+            "migration-trail" => {
+                commands.push(MuddleCommandHint {
+                    command: "resolve loss".to_string(),
+                    description: "Resolve the legible loss beat.".to_string(),
+                });
+                commands.push(MuddleCommandHint {
+                    command: "go brief".to_string(),
+                    description: "Return to the campaign brief.".to_string(),
+                });
+            }
+            _ => {}
+        }
+
+        commands
+    }
+
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -273,6 +340,10 @@ mod tests {
             .map_panel(&session.current_room)
             .unwrap()
             .contains("@ Trail"));
+        assert_eq!(
+            host.objective_panel(&session.current_room),
+            vec!["Resolve the visible loss beat and preserve continuity.".to_string()]
+        );
     }
 
     #[test]

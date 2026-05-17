@@ -67,6 +67,12 @@ pub trait MuddleHost {
     fn map_panel(&self, _current_room: &str) -> Option<String> {
         None
     }
+    fn objective_panel(&self, _current_room: &str) -> Vec<String> {
+        Vec::new()
+    }
+    fn command_panel(&self, _current_room: &str) -> Vec<MuddleCommandHint> {
+        Vec::new()
+    }
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -78,6 +84,12 @@ pub trait MuddleHost {
 pub struct MuddleResource {
     pub label: String,
     pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleCommandHint {
+    pub command: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

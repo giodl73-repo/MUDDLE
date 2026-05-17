@@ -59,6 +59,8 @@ The shared play surface already has the first common game-screen panels:
 |---|---|
 | Status/resources | Host-provided counts and state such as embers, locks, seeds, manifests, or session status. |
 | Map | Host-provided ASCII location sketch with the current room marked as `@`. |
+| Objectives | Host-provided current goals so the player knows what to pursue. |
+| Commands | Contextual command hints so the player is not guessing verbs. |
 
 ```powershell
 cargo run -p muddle-cli

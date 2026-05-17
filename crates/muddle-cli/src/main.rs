@@ -96,6 +96,21 @@ fn print_play_panels(host: &dyn MuddleHost, session: &MuddleSession) {
     if let Some(map) = host.map_panel(&session.current_room) {
         println!("[map] {map}");
     }
+
+    let objectives = host.objective_panel(&session.current_room);
+    if !objectives.is_empty() {
+        println!("[objectives] {}", objectives.join(" | "));
+    }
+
+    let commands = host.command_panel(&session.current_room);
+    if !commands.is_empty() {
+        let command_text = commands
+            .iter()
+            .map(|hint| format!("{} ({})", hint.command, hint.description))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        println!("[commands] {command_text}");
+    }
 }
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<CliAction, String> {
