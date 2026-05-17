@@ -77,6 +77,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - host-provided map panels
 - host-provided objective panels
 - host-provided command hint panels
+- renderer-provided recent transcript/log panels
 - transcript recording
 - `muddle-mock-sim` stateful labyrinth fixture host
 - `muddle-banish-spike` Pilgrim Loss launcher adapter spike

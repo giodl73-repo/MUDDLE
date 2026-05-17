@@ -193,7 +193,37 @@ pub fn write_play_panels<W: Write>(
         writeln!(output, "[commands] {command_text}")?;
     }
 
+    let recent_log = recent_log_panel(session, 3);
+    if !recent_log.is_empty() {
+        writeln!(output, "[recent] {}", recent_log.join(" | "))?;
+    }
+
     Ok(())
+}
+
+pub fn recent_log_panel(session: &MuddleSession, limit: usize) -> Vec<String> {
+    let skip_count = session.transcript.len().saturating_sub(limit);
+    session
+        .transcript
+        .iter()
+        .skip(skip_count)
+        .map(|turn| {
+            format!(
+                "{}: {}",
+                turn.command.normalized(),
+                compact_response(&turn.response)
+            )
+        })
+        .collect()
+}
+
+fn compact_response(response: &str) -> String {
+    response
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 #[cfg(test)]
@@ -244,6 +274,37 @@ mod tests {
         assert_eq!(session.transcript.len(), 2);
         assert!(rendered.contains("Host mounted: test-host"));
         assert!(rendered.contains("Transcript turns: 2"));
+    }
+
+    #[test]
+    fn writes_recent_log_panel_from_transcript() {
+        let mut host = test_host();
+        let mut session = MuddleSession::for_host(&host).expect("session starts");
+        session
+            .play_turn(&mut host, MuddleCommand::parse("look"))
+            .expect("look turn plays");
+        session
+            .play_turn(&mut host, MuddleCommand::parse("go north"))
+            .expect("move turn plays");
+
+        let mut output = Vec::new();
+        write_play_panels(&mut output, &host, &session).expect("panels render");
+        let rendered = String::from_utf8(output).expect("panels are utf8");
+
+        assert!(rendered.contains("[recent] look: + Entry | go north: You move to North."));
+    }
+
+    #[test]
+    fn recent_log_panel_limits_to_latest_entries() {
+        let mut session = MuddleSession::new("entry");
+        session.record_turn(MuddleCommand::parse("look"), "one");
+        session.record_turn(MuddleCommand::parse("inspect"), "two");
+        session.record_turn(MuddleCommand::parse("wait"), "three");
+
+        assert_eq!(
+            recent_log_panel(&session, 2),
+            vec!["inspect: two".to_string(), "wait: three".to_string()]
+        );
     }
 
     #[test]
