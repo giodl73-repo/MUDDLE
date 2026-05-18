@@ -54,8 +54,9 @@ message so local runner failures are not silent.
 The **Save now** button writes the configured `--save` and/or `--transcript`
 paths immediately; Ctrl+S triggers the same action from the keyboard. The
 **Reload save** button reloads the configured `--save` path without restarting
-the local server; Ctrl+R triggers reload. The save-slot controls write, load,
-and delete named sibling save files derived from the configured `--save` path;
+the local server; Ctrl+R triggers reload. When configured, the active save and
+transcript output paths also render copy buttons. The save-slot controls write,
+load, and delete named sibling save files derived from the configured `--save` path;
 slot names may use letters, numbers, dash, and underscore. The slot list shows
 each slot's path, byte size, and modified time, and includes a **Copy path**
 button for copying the resolved slot file path. The import/export controls copy

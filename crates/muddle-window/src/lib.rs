@@ -998,6 +998,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     .slot-details { list-style: none; padding-left: 0; }
     .slot-details li { background: #0f1318; border: 1px solid #263241; border-radius: 8px; margin: .5rem 0; padding: .5rem; }
     .slot-copy { margin-top: .5rem; padding: .4rem .65rem; background: #1d3f5c; font-size: .85rem; }
+    .path-copy { margin-right: .5rem; padding: .4rem .65rem; background: #1d3f5c; font-size: .85rem; }
     .window-status { display: none; background: #3b2630; border: 1px solid #7f4b5a; border-radius: 8px; color: #ffdce5; padding: .75rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
@@ -1031,6 +1032,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-now" class="secondary" type="button">Save now</button>
       <button id="load-save" class="secondary" type="button">Reload save</button>
       <p id="persistence" class="muted"></p>
+      <div id="persistence-actions"></div>
       <p class="muted">Shortcuts: Ctrl+S save, Ctrl+R reload, Ctrl+E export, Ctrl+I import.</p>
       <h2>Save slots</h2>
       <input id="save-slot-name" autocomplete="off" placeholder="slot name, e.g. before-boss">
@@ -1179,10 +1181,31 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       renderCommandButtons(state.commands || []);
       renderHistory(state.history || []);
       renderSaveSlots(state.save_slot_details || []);
+      renderPersistenceActions(state);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
       document.getElementById('persistence').textContent = persistence.join(' | ');
+    }
+
+    function renderPersistenceActions(state) {
+      const actions = document.getElementById('persistence-actions');
+      actions.innerHTML = '';
+      if (state.save_path) {
+        actions.appendChild(pathCopyButton('Copy save path', state.save_path, 'active save'));
+      }
+      if (state.transcript_path) {
+        actions.appendChild(pathCopyButton('Copy transcript path', state.transcript_path, 'transcript'));
+      }
+    }
+
+    function pathCopyButton(label, path, name) {
+      const button = document.createElement('button');
+      button.className = 'path-copy';
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => copyText(path, `${name} path`));
+      return button;
     }
 
     function renderSaveSlots(slotDetails) {
@@ -1227,9 +1250,13 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function copySlotPath(slot) {
+      await copyText(slot.path, `save-slot path for ${slot.name}`);
+    }
+
+    async function copyText(text, label) {
       try {
-        await navigator.clipboard.writeText(slot.path);
-        showWindowStatus(`Copied save-slot path for ${slot.name}.`);
+        await navigator.clipboard.writeText(text);
+        showWindowStatus(`Copied ${label}.`);
       } catch (error) {
         showWindowStatus(`Copy failed: ${error.message}`);
       }
@@ -1569,7 +1596,15 @@ mod tests {
     fn window_html_supports_save_slot_path_copy() {
         assert!(WINDOW_HTML.contains("Copy path"));
         assert!(WINDOW_HTML.contains("copySlotPath"));
-        assert!(WINDOW_HTML.contains("navigator.clipboard.writeText(slot.path)"));
+        assert!(WINDOW_HTML.contains("navigator.clipboard.writeText(text)"));
+    }
+
+    #[test]
+    fn window_html_supports_active_persistence_path_copy() {
+        assert!(WINDOW_HTML.contains("persistence-actions"));
+        assert!(WINDOW_HTML.contains("Copy save path"));
+        assert!(WINDOW_HTML.contains("Copy transcript path"));
+        assert!(WINDOW_HTML.contains("renderPersistenceActions"));
     }
 
     #[test]

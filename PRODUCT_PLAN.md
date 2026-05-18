@@ -26,7 +26,7 @@ escape room without becoming either product's engine.
 | Host chooser scale | The browser host chooser groups registrations by category and filters by host metadata as more product surfaces are mounted. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
-| Browser persistence controls | Players can save immediately or reload the configured save file without restarting the local runner, including keyboard shortcuts for common persistence actions. |
+| Browser persistence controls | Players can save immediately, reload the configured save file, and copy active save/transcript output paths without restarting the local runner, including keyboard shortcuts for common persistence actions. |
 | Browser save slots | Players can save, inspect, copy paths/text for, load, and delete named sibling save files from the browser while keeping the configured active `--save` path. |
 | Browser save import/export | Players can copy portable command-replay save text from the browser and import compatible save text back into the mounted host. |
 | Browser request status | Local window request failures are surfaced inside the browser instead of failing silently. |
@@ -112,7 +112,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - visible browser status for failed local window requests
 - Ctrl+S/Ctrl+R/Ctrl+E/Ctrl+I shortcuts for save, reload, export, and import
 - in-window full turn history and local `/transcript` endpoint
-- in-window save-now and reload-save controls for configured persistence paths
+- in-window save-now, reload-save, and copy-path controls for configured persistence paths
 - in-window named save-slot create/inspect/copy-path/export-text/load/delete controls over sibling command-replay save files
 - in-window save text import/export over the shared command-replay format
 - in-window current-host restart/reset control

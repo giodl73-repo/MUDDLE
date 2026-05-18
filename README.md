@@ -101,8 +101,9 @@ layout collapses cleanly on narrower displays and keeps the command form sticky
 during long sessions. Browser-side request failures are shown in-window instead
 of disappearing into the developer console. Keyboard shortcuts cover common
 persistence actions: Ctrl+S saves, Ctrl+R reloads, Ctrl+E exports save text, and
-Ctrl+I imports save text. The window also has in-session **Save now**,
-**Reload save**, named **Save slot**/**Load
+Ctrl+I imports save text. The active save and transcript output paths can be
+copied from the browser when configured. The window also has in-session
+**Save now**, **Reload save**, named **Save slot**/**Load
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured
