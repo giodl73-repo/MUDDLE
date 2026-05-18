@@ -2,7 +2,7 @@ use std::{
     env, fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
 };
 
@@ -237,6 +237,12 @@ fn handle_connection(
             "text/plain",
             &render_window_transcript(state),
         ),
+        ("GET", "/save-slots") => write_response(
+            &mut stream,
+            "200 OK",
+            "application/json",
+            &render_save_slots_json(state)?,
+        ),
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
             if let Some(registration) = find_window_host(registrations, host_name) {
@@ -284,6 +290,26 @@ fn handle_connection(
         }
         ("POST", "/load-save") => {
             reload_state_from_save_path(state)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
+        ("POST", "/save-slot") => {
+            let slot_name = request_body(&request).trim();
+            save_state_to_slot(state, slot_name)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
+        ("POST", "/load-slot") => {
+            let slot_name = request_body(&request).trim();
+            load_state_from_slot(state, slot_name)?;
             write_response(
                 &mut stream,
                 "200 OK",
@@ -375,6 +401,49 @@ fn reload_state_from_save_path(state: &mut MuddleWindowState) -> io::Result<()> 
     Ok(())
 }
 
+fn save_state_to_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::Result<()> {
+    let Some((slot_name, slot_path)) =
+        save_slot_path(&state.save_path, slot_name, &mut state.last_response)
+    else {
+        return Ok(());
+    };
+
+    fs::write(
+        &slot_path,
+        state.session.save_for_host(state.host.as_ref()).encode(),
+    )?;
+    state.last_response = format!(
+        "Saved session slot `{slot_name}` to {}.",
+        slot_path.display()
+    );
+    Ok(())
+}
+
+fn load_state_from_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::Result<()> {
+    let Some((slot_name, slot_path)) =
+        save_slot_path(&state.save_path, slot_name, &mut state.last_response)
+    else {
+        return Ok(());
+    };
+    if !slot_path.exists() {
+        state.last_response = format!("No save slot found at {}.", slot_path.display());
+        return Ok(());
+    }
+
+    *state = MuddleWindowState::new(
+        state.registration,
+        Some(slot_path.clone()),
+        state.save_path.clone(),
+        state.transcript_path.clone(),
+    )?;
+    state.last_response = format!(
+        "Loaded save slot `{slot_name}` from {}.",
+        slot_path.display()
+    );
+    persist_state(state)?;
+    Ok(())
+}
+
 impl MuddleWindowState {
     fn new(
         registration: MuddleWindowHostRegistration,
@@ -440,6 +509,104 @@ fn persist_state(state: &MuddleWindowState) -> io::Result<()> {
     Ok(())
 }
 
+fn save_slot_path(
+    save_path: &Option<PathBuf>,
+    slot_name: &str,
+    last_response: &mut String,
+) -> Option<(String, PathBuf)> {
+    let Some(save_path) = save_path else {
+        *last_response = "Start muddle-window with --save before using save slots.".to_string();
+        return None;
+    };
+    let slot_name = match normalize_save_slot_name(slot_name) {
+        Ok(slot_name) => slot_name,
+        Err(message) => {
+            *last_response = message;
+            return None;
+        }
+    };
+
+    let parent = save_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let stem = save_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("muddle-window");
+    let extension = save_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_default();
+    let slot_path = parent.join(format!("{stem}.slot-{slot_name}{extension}"));
+    Some((slot_name, slot_path))
+}
+
+fn normalize_save_slot_name(slot_name: &str) -> Result<String, String> {
+    let slot_name = slot_name.trim();
+    if slot_name.is_empty() {
+        return Err("Enter a save slot name before using save slots.".to_string());
+    }
+    if slot_name.len() > 48 {
+        return Err("Save slot names must be 48 characters or fewer.".to_string());
+    }
+    if !slot_name
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+        return Err(
+            "Save slot names can only use letters, numbers, dash, and underscore.".to_string(),
+        );
+    }
+    Ok(slot_name.to_string())
+}
+
+fn list_save_slots(state: &MuddleWindowState) -> io::Result<Vec<String>> {
+    let Some(save_path) = &state.save_path else {
+        return Ok(Vec::new());
+    };
+    let parent = save_path.parent().unwrap_or_else(|| Path::new("."));
+    let stem = save_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("muddle-window");
+    let extension = save_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_default();
+    let prefix = format!("{stem}.slot-");
+
+    let entries = match fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+    let mut slots = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let Some(file_name) = entry.file_name().to_str().map(str::to_string) else {
+            continue;
+        };
+        if !file_name.starts_with(&prefix) || !file_name.ends_with(&extension) {
+            continue;
+        }
+
+        let without_prefix = &file_name[prefix.len()..];
+        let slot_name = if extension.is_empty() {
+            without_prefix
+        } else {
+            &without_prefix[..without_prefix.len() - extension.len()]
+        };
+        if normalize_save_slot_name(slot_name).is_ok() {
+            slots.push(slot_name.to_string());
+        }
+    }
+    slots.sort();
+    Ok(slots)
+}
+
 fn find_window_host(
     registrations: &[MuddleWindowHostRegistration],
     name: &str,
@@ -489,9 +656,10 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         .unwrap_or_else(|| format!("Room missing: {}", state.session.current_room));
     let commands = render_commands_json(state);
     let history = render_history_json(state);
+    let save_slots = render_save_slots_json(state)?;
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"commands\":{commands},\"history\":{history}}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"commands\":{commands},\"history\":{history}}}",
         json_escape(state.registration.name),
         json_escape(state.registration.description),
         json_escape(state.registration.suggested_commands),
@@ -503,6 +671,15 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         json_escape(&display_path(&state.save_path)),
         json_escape(&display_path(&state.transcript_path))
     ))
+}
+
+fn render_save_slots_json(state: &MuddleWindowState) -> io::Result<String> {
+    let slots = list_save_slots(state)?
+        .iter()
+        .map(|slot| format!("\"{}\"", json_escape(slot)))
+        .collect::<Vec<_>>()
+        .join(",");
+    Ok(format!("[{slots}]"))
 }
 
 fn render_commands_json(state: &MuddleWindowState) -> String {
@@ -637,6 +814,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     h1, h2 { margin-top: 0; color: #a7d3ff; }
     pre { white-space: pre-wrap; line-height: 1.35; }
     input { width: 100%; box-sizing: border-box; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
+    select { width: 100%; box-sizing: border-box; margin-top: .75rem; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
     button { margin-top: .75rem; padding: .65rem 1rem; background: #316dca; color: #fff; border: 0; border-radius: 8px; font: inherit; cursor: pointer; }
     button.secondary { background: #263241; color: #dbe6f2; }
     button.host-card { display: block; width: 100%; margin: .75rem 0; text-align: left; background: #1d2936; border: 1px solid #42566b; }
@@ -673,6 +851,11 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-now" class="secondary" type="button">Save now</button>
       <button id="load-save" class="secondary" type="button">Reload save</button>
       <p id="persistence" class="muted"></p>
+      <h2>Save slots</h2>
+      <input id="save-slot-name" autocomplete="off" placeholder="slot name, e.g. before-boss">
+      <button id="save-slot" class="secondary" type="button">Save slot</button>
+      <select id="save-slot-list"></select>
+      <button id="load-slot" class="secondary" type="button">Load slot</button>
       <h2>Panels</h2>
       <pre id="panels"></pre>
     </section>
@@ -769,10 +952,36 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('response').textContent = state.last_response;
       renderCommandButtons(state.commands || []);
       renderHistory(state.history || []);
+      renderSaveSlots(state.save_slots || []);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
       document.getElementById('persistence').textContent = persistence.join(' | ');
+    }
+
+    function renderSaveSlots(slots) {
+      const list = document.getElementById('save-slot-list');
+      const selected = list.value;
+      list.innerHTML = '';
+      if (!slots.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No save slots yet';
+        list.appendChild(option);
+        return;
+      }
+      for (const slot of slots) {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = slot;
+        list.appendChild(option);
+      }
+      if (slots.includes(selected)) list.value = selected;
+    }
+
+    function currentSlotName() {
+      const input = document.getElementById('save-slot-name').value.trim();
+      return input || document.getElementById('save-slot-list').value;
     }
 
     function renderCommandButtons(commands) {
@@ -835,6 +1044,16 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       renderState(state);
       document.getElementById('command').focus();
     });
+    document.getElementById('save-slot').addEventListener('click', async () => {
+      const state = await fetch('/save-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
+    document.getElementById('load-slot').addEventListener('click', async () => {
+      const state = await fetch('/load-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
     document.getElementById('command-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!selectedHost) return;
@@ -874,6 +1093,9 @@ mod tests {
             room_id: &str,
             command: &MuddleCommand,
         ) -> Result<MuddleCommandOutcome, MuddleError> {
+            if command.normalized() == "look" {
+                return Ok(MuddleCommandOutcome::stay("The empty room is still here."));
+            }
             Err(MuddleError::UnknownCommand {
                 room_id: room_id.to_string(),
                 command: command.clone(),
@@ -1042,6 +1264,51 @@ mod tests {
 
         let _ = fs::remove_file(save_path);
         let _ = fs::remove_file(transcript_path);
+    }
+
+    #[test]
+    fn save_slots_round_trip_from_configured_save_path() {
+        let save_path = temp_file_path("slot-active.muddle");
+        let slot_path = temp_file_path("slot-active.slot-before_gate.muddle");
+        let transcript_path = temp_file_path("slot-active.txt");
+        let mut state = MuddleWindowState::new(
+            registration(),
+            None,
+            Some(save_path.clone()),
+            Some(transcript_path.clone()),
+        )
+        .expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Slot saved.");
+
+        save_state_to_slot(&mut state, "before_gate").expect("slot saves");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Unsaved.");
+        load_state_from_slot(&mut state, "before_gate").expect("slot loads");
+
+        assert_eq!(state.session.transcript.len(), 1);
+        assert_eq!(
+            list_save_slots(&state).expect("slots list"),
+            vec!["before_gate"]
+        );
+        assert!(render_state_json(&state)
+            .expect("state renders")
+            .contains("\"save_slots\":[\"before_gate\"]"));
+        assert!(state.last_response.contains("Loaded save slot"));
+
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(slot_path);
+        let _ = fs::remove_file(transcript_path);
+    }
+
+    #[test]
+    fn rejects_unsafe_save_slot_names() {
+        assert!(normalize_save_slot_name("before_gate").is_ok());
+        assert!(normalize_save_slot_name("../outside").is_err());
+        assert!(normalize_save_slot_name("two words").is_err());
+        assert!(normalize_save_slot_name("").is_err());
     }
 
     #[test]

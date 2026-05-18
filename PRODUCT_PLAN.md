@@ -27,6 +27,7 @@ escape room without becoming either product's engine.
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
 | Browser persistence controls | Players can save immediately or reload the configured save file without restarting the local runner. |
+| Browser save slots | Players can save and load named sibling save files from the browser while keeping the configured active `--save` path. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -106,6 +107,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - clickable window command buttons from host-provided command hints
 - in-window full turn history and local `/transcript` endpoint
 - in-window save-now and reload-save controls for configured persistence paths
+- in-window named save-slot controls over sibling command-replay save files
 - in-window current-host restart/reset control
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 
