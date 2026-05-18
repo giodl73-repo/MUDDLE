@@ -35,8 +35,9 @@ Product repos can depend on the `muddle-window` crate and call
 `run_muddle_window_hosts_from_env_args()` with their own `MuddleHost`
 registrations. This mirrors the existing reusable `muddle-cli` runner shape.
 The runner accepts `--save`, `--load`, and `--transcript`; saves use the same
-command-replay format as the CLI and transcripts use the same transcript
-renderer.
+command-replay format as the CLI and include optional host-owned checkpoints
+when the mounted host implements checkpoint export/import. Transcripts use the
+same transcript renderer.
 Host-provided command hints render as clickable action buttons, so every
 compatible host can expose its next legal/common commands without custom window
 code.

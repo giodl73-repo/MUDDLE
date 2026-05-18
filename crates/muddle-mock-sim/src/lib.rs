@@ -247,6 +247,56 @@ impl MuddleHost for MuddleMockSimHost {
         commands
     }
 
+    fn export_checkpoint(&self) -> Option<String> {
+        Some(format!(
+            "embers={};glyphs_read={};gate_unlocked={}",
+            self.state.ember_count, self.state.glyphs_read, self.state.gate_unlocked
+        ))
+    }
+
+    fn import_checkpoint(&mut self, checkpoint: &str) -> Result<(), MuddleError> {
+        let mut ember_count = None;
+        let mut glyphs_read = None;
+        let mut gate_unlocked = None;
+
+        for part in checkpoint.split(';') {
+            let (key, value) =
+                part.split_once('=')
+                    .ok_or_else(|| MuddleError::InvalidHostCheckpoint {
+                        message: format!("malformed checkpoint field `{part}`"),
+                    })?;
+            match key {
+                "embers" => {
+                    ember_count = Some(value.parse::<u8>().map_err(|_| {
+                        MuddleError::InvalidHostCheckpoint {
+                            message: format!("invalid ember count `{value}`"),
+                        }
+                    })?);
+                }
+                "glyphs_read" => glyphs_read = Some(parse_checkpoint_bool(key, value)?),
+                "gate_unlocked" => gate_unlocked = Some(parse_checkpoint_bool(key, value)?),
+                _ => {
+                    return Err(MuddleError::InvalidHostCheckpoint {
+                        message: format!("unknown checkpoint field `{key}`"),
+                    });
+                }
+            }
+        }
+
+        self.state = MuddleMockSimState {
+            ember_count: ember_count.ok_or_else(|| MuddleError::InvalidHostCheckpoint {
+                message: "missing embers checkpoint field".to_string(),
+            })?,
+            glyphs_read: glyphs_read.ok_or_else(|| MuddleError::InvalidHostCheckpoint {
+                message: "missing glyphs_read checkpoint field".to_string(),
+            })?,
+            gate_unlocked: gate_unlocked.ok_or_else(|| MuddleError::InvalidHostCheckpoint {
+                message: "missing gate_unlocked checkpoint field".to_string(),
+            })?,
+        };
+        Ok(())
+    }
+
     fn handle_command(
         &mut self,
         room_id: &str,
@@ -318,6 +368,16 @@ fn marker(current_room: &str, room_id: &str) -> &'static str {
     }
 }
 
+fn parse_checkpoint_bool(key: &str, value: &str) -> Result<bool, MuddleError> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(MuddleError::InvalidHostCheckpoint {
+            message: format!("invalid boolean checkpoint field `{key}={value}`"),
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use muddle_core::MuddleSession;
@@ -382,5 +442,35 @@ mod tests {
 
         assert_eq!(session.current_room, "glyph-antechamber");
         assert!(response.contains("sealed"));
+    }
+
+    #[test]
+    fn resumes_mock_sim_from_host_checkpoint() {
+        let mut host = MuddleMockSimHost::new();
+        let mut session = MuddleSession::for_host(&host).expect("mock sim has a start room");
+
+        for command in [
+            "gather ember",
+            "go antechamber",
+            "inspect glyphs",
+            "use ember",
+        ] {
+            session
+                .play_turn(&mut host, MuddleCommand::parse(command))
+                .expect("command plays");
+        }
+
+        let save = session.save_for_host(&host);
+        assert_eq!(
+            save.host_checkpoint.as_deref(),
+            Some("embers=0;glyphs_read=true;gate_unlocked=true")
+        );
+
+        let mut resumed_host = MuddleMockSimHost::new();
+        let resumed_session =
+            MuddleSession::resume_for_host(&mut resumed_host, &save).expect("session resumes");
+
+        assert_eq!(resumed_session.current_room, "glyph-antechamber");
+        assert!(resumed_host.state().gate_unlocked);
     }
 }

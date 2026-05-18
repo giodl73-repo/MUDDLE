@@ -349,7 +349,10 @@ impl MuddleWindowState {
 
 fn persist_state(state: &MuddleWindowState) -> io::Result<()> {
     if let Some(path) = &state.save_path {
-        fs::write(path, state.session.save().encode())?;
+        fs::write(
+            path,
+            state.session.save_for_host(state.host.as_ref()).encode(),
+        )?;
     }
     if let Some(path) = &state.transcript_path {
         fs::write(

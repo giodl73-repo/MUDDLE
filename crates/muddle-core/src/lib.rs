@@ -38,6 +38,7 @@ pub struct MuddleSession {
 pub struct MuddleSessionSave {
     pub current_room: String,
     pub commands: Vec<String>,
+    pub host_checkpoint: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +66,9 @@ pub enum MuddleError {
     InvalidSessionSave {
         message: String,
     },
+    InvalidHostCheckpoint {
+        message: String,
+    },
     ResumeRoomMismatch {
         expected_room: String,
         actual_room: String,
@@ -88,6 +92,14 @@ pub trait MuddleHost {
     }
     fn command_panel(&self, _current_room: &str) -> Vec<MuddleCommandHint> {
         Vec::new()
+    }
+    fn export_checkpoint(&self) -> Option<String> {
+        None
+    }
+    fn import_checkpoint(&mut self, checkpoint: &str) -> Result<(), MuddleError> {
+        Err(MuddleError::InvalidHostCheckpoint {
+            message: format!("host does not support checkpoints: {checkpoint}"),
+        })
     }
     fn handle_command(
         &mut self,
@@ -239,6 +251,14 @@ impl MuddleSession {
                 .iter()
                 .map(|turn| turn.command.normalized())
                 .collect(),
+            host_checkpoint: None,
+        }
+    }
+
+    pub fn save_for_host<H: MuddleHost + ?Sized>(&self, host: &H) -> MuddleSessionSave {
+        MuddleSessionSave {
+            host_checkpoint: host.export_checkpoint(),
+            ..self.save()
         }
     }
 
@@ -258,6 +278,10 @@ impl MuddleSession {
             });
         }
 
+        if let Some(checkpoint) = &save.host_checkpoint {
+            host.import_checkpoint(checkpoint)?;
+        }
+
         Ok(session)
     }
 }
@@ -270,6 +294,9 @@ impl MuddleSessionSave {
             Self::HEADER.to_string(),
             format!("current_room={}", encode_field(&self.current_room)),
         ];
+        if let Some(checkpoint) = &self.host_checkpoint {
+            lines.push(format!("host_checkpoint={}", encode_field(checkpoint)));
+        }
         lines.extend(
             self.commands
                 .iter()
@@ -302,19 +329,28 @@ impl MuddleSessionSave {
             .and_then(decode_field)?;
 
         let mut commands = Vec::new();
+        let mut host_checkpoint = None;
         for line in lines {
-            let command = line
-                .strip_prefix("command=")
-                .ok_or_else(|| MuddleError::InvalidSessionSave {
+            if let Some(encoded) = line.strip_prefix("command=") {
+                commands.push(decode_field(encoded)?);
+            } else if let Some(encoded) = line.strip_prefix("host_checkpoint=") {
+                if host_checkpoint.is_some() {
+                    return Err(MuddleError::InvalidSessionSave {
+                        message: "duplicate host_checkpoint line".to_string(),
+                    });
+                }
+                host_checkpoint = Some(decode_field(encoded)?);
+            } else {
+                return Err(MuddleError::InvalidSessionSave {
                     message: format!("unexpected save line `{line}`"),
-                })
-                .and_then(decode_field)?;
-            commands.push(command);
+                });
+            }
         }
 
         Ok(Self {
             current_room,
             commands,
+            host_checkpoint,
         })
     }
 }
@@ -493,9 +529,25 @@ mod tests {
         let save = MuddleSessionSave {
             current_room: "north=gate".to_string(),
             commands: vec!["look".to_string(), "go north%gate".to_string()],
+            host_checkpoint: Some("embers=1;glyphs=true".to_string()),
         };
 
         assert_eq!(MuddleSessionSave::decode(&save.encode()), Ok(save));
+    }
+
+    #[test]
+    fn decodes_command_replay_saves_without_host_checkpoints() {
+        let save = MuddleSessionSave::decode("MUDDLE_SESSION_V1\ncurrent_room=camp\ncommand=look")
+            .expect("legacy save decodes");
+
+        assert_eq!(
+            save,
+            MuddleSessionSave {
+                current_room: "camp".to_string(),
+                commands: vec!["look".to_string()],
+                host_checkpoint: None,
+            }
+        );
     }
 
     #[test]

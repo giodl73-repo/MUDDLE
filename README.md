@@ -26,7 +26,7 @@ The acceptance target is:
 3. BANISH and AMAZE keep their own content, rules, maps, locks, simulations, and
    win conditions.
 4. MUDDLE owns only the shared room-command UX, renderer contracts, transcript,
-   save/resume shape, and host adapter API.
+    save/resume shape, optional host checkpoints, and host adapter API.
 
 ## Workspace
 
@@ -91,9 +91,10 @@ same host/session contracts as the CLI. Its front screen includes a
 and infrastructure already visible through MUDDLE. Product repos can reuse the
 same window runner, just as they reuse the CLI runner. The reusable window
 runner supports `--save`, `--load`, and `--transcript` for command-replay
-session persistence, and renders host-provided command hints as clickable
-action buttons. The window also has an in-session **Restart host** control for
-replaying the current host while preserving configured save/transcript paths.
+   session persistence with optional host-owned checkpoints, and renders
+   host-provided command hints as clickable action buttons. The window also has
+   an in-session **Restart host** control for replaying the current host while
+   preserving configured save/transcript paths.
 
 ## Host extension model
 
@@ -102,8 +103,8 @@ first wave. They provide explicit adapters that implement `MuddleHost`.
 
 | Layer | Responsibility |
 |---|---|
-| `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, and transcript behavior. |
-| `muddle-mock-sim` | Proves host-owned mutable labyrinth state, resources, locks, and command outcomes inside the MUDDLE workspace. |
+| `muddle-core` | Defines `MuddleHost`, `MuddleRoom`, `MuddleCommand`, sessions, outcomes, transcripts, and optional host checkpoint hooks. |
+| `muddle-mock-sim` | Proves host-owned mutable labyrinth state, resources, locks, command outcomes, and checkpoint export/import inside the MUDDLE workspace. |
 | `muddle-banish-spike` | Proves a BANISH-shaped launcher adapter surface; BANISH now exposes `pilgrim_loss_muddle_surface()` as the product-owned handoff API. |
 | `muddle-amaze-spike` | Proves an AMAZE-shaped escape-room adapter surface; AMAZE now exposes `silverstream_muddle_surface()` as the product-owned handoff API. |
 | Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |

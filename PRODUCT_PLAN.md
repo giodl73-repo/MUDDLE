@@ -25,6 +25,7 @@ escape room without becoming either product's engine.
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
+| Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
 | Product boundary | BANISH/AMAZE rules stay in their repos; MUDDLE owns only shared UX/session contracts. |
 
@@ -71,6 +72,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - `MuddleTurn`
 - `MuddleSession`
 - `MuddleHost`
+- optional host checkpoint export/import hooks
 - `MuddleStaticHost`
 - `MuddleCommandOutcome`
 - `MuddleResource`
@@ -89,7 +91,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - BANISH-owned `pilgrim_loss_muddle_host()` backed by BANISH surface data
 - AMAZE-owned `silverstream_muddle_host()` backed by AMAZE surface data
 - reusable `muddle-cli` runner entry points for product-owned launchers
-- portable command-transcript save/resume contracts
+- portable command-transcript save/resume contracts with optional host-owned checkpoints
 - readable transcript export from the shared runner
 - save/resume regression coverage in MUDDLE, BANISH, and AMAZE
 - product-owned `banish-muddle` and `amaze-muddle` binaries

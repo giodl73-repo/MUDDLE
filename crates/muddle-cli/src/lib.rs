@@ -134,7 +134,7 @@ where
         }
     }
 
-    write_save_if_requested(&mut output, &session, &options)?;
+    write_save_if_requested(&mut output, host, &session, &options)?;
     write_transcript_if_requested(&mut output, info, &session, &options)?;
     Ok(session)
 }
@@ -184,11 +184,12 @@ pub fn parse_run_options(
 
 fn write_save_if_requested<W: Write>(
     output: &mut W,
+    host: &dyn MuddleHost,
     session: &MuddleSession,
     options: &MuddleCliRunOptions,
 ) -> io::Result<()> {
     if let Some(path) = &options.save_path {
-        fs::write(path, session.save().encode())?;
+        fs::write(path, session.save_for_host(host).encode())?;
         writeln!(output, "Saved MUDDLE session to {}.", path.display())?;
     }
     Ok(())
