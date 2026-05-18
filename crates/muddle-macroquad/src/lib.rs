@@ -20,6 +20,7 @@ const DEFAULT_HOST: &str = "mock-labyrinth";
 pub struct MuddleMacroquadRunOptions {
     pub host_name: Option<String>,
     pub list_hosts: bool,
+    pub visual_smoke: bool,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
     pub save_path: Option<PathBuf>,
@@ -124,6 +125,7 @@ impl Default for MuddleMacroquadRunOptions {
         Self {
             host_name: None,
             list_hosts: false,
+            visual_smoke: false,
             show_help: false,
             load_path: None,
             save_path: None,
@@ -1053,6 +1055,10 @@ pub async fn run_muddle_macroquad_hosts(
         println!("{}", macroquad_host_list(&registrations));
         return Ok(());
     }
+    if options.visual_smoke {
+        println!("{}", macroquad_visual_smoke(&registrations)?);
+        return Ok(());
+    }
 
     let mut state = match options.host_name {
         Some(host_name) => MuddleMacroquadState::with_host_and_paths(
@@ -1397,6 +1403,7 @@ pub fn parse_macroquad_run_options(
         match arg.as_str() {
             "--help" | "-h" => options.show_help = true,
             "--list-hosts" => options.list_hosts = true,
+            "--visual-smoke" => options.visual_smoke = true,
             "--host" => {
                 options.host_name = Some(
                     args.next()
@@ -1475,7 +1482,7 @@ pub fn parse_macroquad_run_options(
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1487,6 +1494,57 @@ pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> St
         ));
     }
     lines.join("\n")
+}
+
+pub fn macroquad_visual_smoke(
+    registrations: &[MuddleClientHostRegistration],
+) -> Result<String, String> {
+    let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
+    for registration in registrations {
+        let host = (registration.create)();
+        let session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
+            format!(
+                "{} failed to start for visual smoke: {error:?}",
+                registration.name
+            )
+        })?;
+        let snapshot = session.client_snapshot(
+            host.as_ref(),
+            registration.client_info(),
+            "Visual smoke snapshot.",
+        );
+        let layout = snapshot_play_layout(&snapshot, "");
+        let sprite_count = layout
+            .visual_nodes
+            .iter()
+            .filter(|node| node.kind == MuddleVisualNodeKind::Sprite)
+            .count();
+        let text_count = layout
+            .visual_nodes
+            .iter()
+            .filter(|node| node.kind == MuddleVisualNodeKind::Text)
+            .count();
+        let group_count = layout
+            .visual_nodes
+            .iter()
+            .filter(|node| node.kind == MuddleVisualNodeKind::Group)
+            .count();
+        let status = if layout.visual_nodes.is_empty() {
+            "no visual nodes"
+        } else {
+            "visual nodes ready"
+        };
+        lines.push(format!(
+            "  {}: {} total (sprites={}, text={}, groups={}) - {}",
+            registration.name,
+            layout.visual_nodes.len(),
+            sprite_count,
+            text_count,
+            group_count,
+            status
+        ));
+    }
+    Ok(lines.join("\n"))
 }
 
 pub fn apply_default_macroquad_paths(
@@ -2369,6 +2427,7 @@ mod tests {
             "--export".to_string(),
             "exported.muddle".to_string(),
             "--list-hosts".to_string(),
+            "--visual-smoke".to_string(),
         ])
         .expect("args parse");
         assert_eq!(options.host_name.as_deref(), Some("banish-pilgrim-loss"));
@@ -2376,6 +2435,73 @@ mod tests {
         assert_eq!(options.import_path, Some(PathBuf::from("portable.muddle")));
         assert_eq!(options.export_path, Some(PathBuf::from("exported.muddle")));
         assert!(options.list_hosts);
+        assert!(options.visual_smoke);
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_reports_registered_visual_nodes() {
+        let output = macroquad_visual_smoke(&[MuddleClientHostRegistration {
+            name: "visual-host",
+            category: "Tests",
+            description: "Visual smoke test host.",
+            suggested_commands: "`look`.",
+            create: || Box::new(VisualSmokeTestHost::new()),
+        }])
+        .expect("visual smoke succeeds");
+
+        assert!(output.contains("visual-host: 2 total"));
+        assert!(output.contains("sprites=1"));
+        assert!(output.contains("text=1"));
+    }
+
+    struct VisualSmokeTestHost {
+        room: muddle_core::MuddleRoom,
+    }
+
+    impl VisualSmokeTestHost {
+        fn new() -> Self {
+            Self {
+                room: muddle_core::MuddleRoom {
+                    id: "scene".to_string(),
+                    title: "Scene".to_string(),
+                    description: "A visual smoke scene.".to_string(),
+                    exits: Vec::new(),
+                },
+            }
+        }
+    }
+
+    impl MuddleHost for VisualSmokeTestHost {
+        fn start_room(&self) -> &str {
+            "scene"
+        }
+
+        fn room(&self, room_id: &str) -> Option<&muddle_core::MuddleRoom> {
+            if room_id == self.room.id {
+                Some(&self.room)
+            } else {
+                None
+            }
+        }
+
+        fn visual_nodes(&self, _current_room: &str) -> Vec<MuddleVisualNode> {
+            vec![
+                MuddleVisualNode::sprite("hero", "Hero", "sprites/hero.png", "Hero")
+                    .with_layer(10)
+                    .with_rect(1, 1, 1, 1),
+                MuddleVisualNode::text("caption", "Caption", "Ready")
+                    .with_layer(20)
+                    .with_rect(1, 2, 2, 1),
+            ]
+        }
+
+        fn handle_command(
+            &mut self,
+            _room_id: &str,
+            _command: &MuddleCommand,
+        ) -> Result<muddle_core::MuddleCommandOutcome, muddle_core::MuddleError> {
+            Ok(muddle_core::MuddleCommandOutcome::stay("Ready."))
+        }
     }
 
     #[test]
