@@ -1037,6 +1037,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <h2>Save slots</h2>
       <input id="save-slot-name" autocomplete="off" placeholder="slot name, e.g. before-boss">
       <button id="save-slot" class="secondary" type="button">Save slot</button>
+      <input id="save-slot-filter" autocomplete="off" placeholder="filter saved slots by name or path">
+      <p id="slot-filter-summary" class="muted"></p>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
       <button id="export-slot" class="secondary" type="button">Export slot text</button>
@@ -1073,6 +1075,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     let commandRecallIndex = 0;
     let commandDraft = '';
     let currentState = null;
+    let currentSlotDetails = [];
 
     async function requestJson(path, options = {}) {
       try {
@@ -1183,7 +1186,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('response').textContent = state.last_response;
       renderCommandButtons(state.commands || []);
       renderHistory(state.history || []);
-      renderSaveSlots(state.save_slot_details || []);
+      currentSlotDetails = state.save_slot_details || [];
+      renderSaveSlots(currentSlotDetails);
       renderPersistenceActions(state);
       updatePersistenceControlState(state);
       const persistence = [];
@@ -1216,9 +1220,14 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       const list = document.getElementById('save-slot-list');
       const details = document.getElementById('save-slot-details');
       const input = document.getElementById('save-slot-name');
+      const filter = document.getElementById('save-slot-filter').value.trim().toLowerCase();
+      const filteredSlotDetails = filter
+        ? slotDetails.filter(slot => slotMatchesFilter(slot, filter))
+        : slotDetails;
       const selected = list.value || input.value.trim();
       list.innerHTML = '';
       details.innerHTML = '';
+      updateSlotFilterSummary(filteredSlotDetails.length, slotDetails.length, filter);
       if (!slotDetails.length) {
         const option = document.createElement('option');
         option.value = '';
@@ -1232,7 +1241,24 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         updatePersistenceControlState();
         return;
       }
-      for (const slot of slotDetails) {
+      if (!filteredSlotDetails.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No matching save slots';
+        list.appendChild(option);
+        const item = document.createElement('li');
+        item.className = 'muted';
+        item.textContent = 'No save slots match the current filter.';
+        details.appendChild(item);
+        if (input.value.trim()) {
+          updateDraftSlotStatus();
+        } else {
+          updateSlotSelectionStatus('');
+        }
+        updatePersistenceControlState();
+        return;
+      }
+      for (const slot of filteredSlotDetails) {
         const option = document.createElement('option');
         option.value = slot.name;
         option.textContent = slot.name;
@@ -1258,7 +1284,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         item.append(title, meta, useSlot, copyPath);
         details.appendChild(item);
       }
-      if (slotDetails.some(slot => slot.name === selected)) {
+      if (filteredSlotDetails.some(slot => slot.name === selected)) {
         list.value = selected;
         selectSaveSlot(list.value);
       } else if (input.value.trim()) {
@@ -1266,6 +1292,20 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       } else {
         selectSaveSlot(list.value);
       }
+    }
+
+    function slotMatchesFilter(slot, filter) {
+      return slot.name.toLowerCase().includes(filter) || slot.path.toLowerCase().includes(filter);
+    }
+
+    function updateSlotFilterSummary(showing, total, filter) {
+      document.getElementById('slot-filter-summary').textContent = filter
+        ? `Showing ${showing} of ${total} save slots.`
+        : `${total} save slots.`;
+    }
+
+    function refreshSlotFilter() {
+      renderSaveSlots(currentSlotDetails);
     }
 
     function syncSelectedSlotName() {
@@ -1311,6 +1351,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       setButtonDisabled('save-now', !hasAnyPersistencePath, 'Start with --save or --transcript to enable Save now.');
       setButtonDisabled('load-save', !hasSavePath, 'Start with --save to enable Reload save.');
       document.getElementById('save-slot-name').disabled = !hasSavePath;
+      document.getElementById('save-slot-filter').disabled = !hasSavePath;
       document.getElementById('save-slot-list').disabled = !hasSavePath;
       setButtonDisabled('save-slot', !(hasSavePath && hasSlotTarget), 'Start with --save and enter a slot name.');
       setButtonDisabled('load-slot', !(hasSavePath && hasExistingSlotTarget), 'Select an existing save slot to load.');
@@ -1514,6 +1555,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('load-save').addEventListener('click', loadSave);
     document.getElementById('save-slot').addEventListener('click', saveSlot);
     document.getElementById('save-slot-name').addEventListener('input', updateDraftSlotStatus);
+    document.getElementById('save-slot-filter').addEventListener('input', refreshSlotFilter);
     document.getElementById('save-slot-list').addEventListener('change', syncSelectedSlotName);
     document.getElementById('load-slot').addEventListener('click', loadSlot);
     document.getElementById('export-slot').addEventListener('click', exportSlotText);
@@ -1745,6 +1787,15 @@ mod tests {
         assert!(WINDOW_HTML.contains("Save slots require a configured --save path."));
         assert!(WINDOW_HTML.contains("Select an existing save slot to load."));
         assert!(WINDOW_HTML.contains("setButtonDisabled"));
+    }
+
+    #[test]
+    fn window_html_filters_save_slots() {
+        assert!(WINDOW_HTML.contains("save-slot-filter"));
+        assert!(WINDOW_HTML.contains("slot-filter-summary"));
+        assert!(WINDOW_HTML.contains("slotMatchesFilter"));
+        assert!(WINDOW_HTML.contains("Showing ${showing} of ${total} save slots."));
+        assert!(WINDOW_HTML.contains("No save slots match the current filter."));
     }
 
     #[test]
