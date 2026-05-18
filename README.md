@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-window` | First local browser-backed window client with host chooser and portfolio showcase over the same host/session contracts. |
+| `muddle-window` | Reusable local browser-backed window runner, host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
 
@@ -86,8 +86,9 @@ The local window client is documented in
 [`docs\window-client.md`](docs/window-client.md). It starts a local HTTP server
 and optionally opens the default browser with `--open`, while still using the
 same host/session contracts as the CLI. Its front screen includes a
-`portfolio-showcase` host for browsing the systems already visible through
-MUDDLE.
+`portfolio-showcase` host for browsing games, Knowledge Systems, Design Labs,
+and infrastructure already visible through MUDDLE. Product repos can reuse the
+same window runner, just as they reuse the CLI runner.
 
 ## Host extension model
 
@@ -101,7 +102,7 @@ first wave. They provide explicit adapters that implement `MuddleHost`.
 | `muddle-banish-spike` | Proves a BANISH-shaped launcher adapter surface; BANISH now exposes `pilgrim_loss_muddle_surface()` as the product-owned handoff API. |
 | `muddle-amaze-spike` | Proves an AMAZE-shaped escape-room adapter surface; AMAZE now exposes `silverstream_muddle_surface()` as the product-owned handoff API. |
 | Host adapter crate | Converts BANISH/AMAZE/board-game state into MUDDLE rooms and command outcomes. |
-| Renderer | CLI first, richer TUI/window later; both select hosts and call the same session APIs. |
+| Renderer | CLI and local window both select hosts and call the same session APIs. |
 
 The first integration shape should be in-process and explicit:
 

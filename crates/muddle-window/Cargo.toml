@@ -3,6 +3,10 @@ name = "muddle-window"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "muddle_window"
+path = "src/lib.rs"
+
 [dependencies]
 muddle-amaze-spike = { path = "../muddle-amaze-spike" }
 muddle-banish-spike = { path = "../muddle-banish-spike" }

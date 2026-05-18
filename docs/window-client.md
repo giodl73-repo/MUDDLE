@@ -25,9 +25,13 @@ cargo run -p muddle-window -- --addr 127.0.0.1:4777
 
 The front screen lists every mounted host. Choosing a host starts a fresh local
 session for that host; the in-window **Change host** button returns to the
-chooser. The default `portfolio-showcase` host is a browsable hub for the
-MUDDLE-backed and adjacent systems currently visible in the portfolio: BANISH,
-AMAZE, TIGRIS, QUEST, RALLY, and Knowledge Systems.
+chooser. The default `portfolio-showcase` host is a browsable catalog for
+MUDDLE-backed and adjacent systems currently visible in the portfolio: games,
+Knowledge Systems, Design Labs, and infrastructure.
+
+Product repos can depend on the `muddle-window` crate and call
+`run_muddle_window_hosts_from_env_args()` with their own `MuddleHost`
+registrations. This mirrors the existing reusable `muddle-cli` runner shape.
 
 ## Boundary
 
