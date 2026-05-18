@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-macroquad` | Lightweight Macroquad game-window client with a native host chooser, command input, command recall, restart/change-host controls, save-slot controls, and shared snapshot rendering inside a Rust engine loop. |
+| `muddle-macroquad` | Lightweight Macroquad game-window client and reusable native runner with a native host chooser, command input, command recall, restart/change-host controls, save-slot controls, and shared snapshot rendering inside a Rust engine loop. |
 | `muddle-window` | Reusable local browser-backed window runner, grouped/filterable host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
@@ -154,7 +154,10 @@ controls, and host command hints render as clickable native buttons rather than
 only flat text. The save-slot screen uses the same sibling save-file
 convention as the browser client and supports filter/select, save, load, delete,
 export, slot detail inspection, and name/newest/oldest/largest sorting actions
-from the native loop.
+from the native loop. Product repos can now reuse the same Macroquad run loop for
+their own native launchers by passing product-owned host registrations and
+launcher-specific default paths, keeping product content outside MUDDLE while
+sharing the renderer.
 
 ## Host extension model
 

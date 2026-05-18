@@ -32,7 +32,7 @@ escape room without becoming either product's engine.
 | Browser request status | Local window request failures are surfaced inside the browser instead of failing silently. |
 | Engine client contract | Browser and game-engine clients consume the shared `MuddleClientSnapshot` and host-registration surface from `muddle-core`. |
 | Reusable client controls | `muddle-core` exposes product-neutral text, image, button, and layout/group controls so clients can share presentation intent without sharing rendering code. |
-| Macroquad core play parity | A lightweight Macroquad window can choose mounted hosts, run the shared room-command loop, recall commands, restart/change hosts, save/reload/import/export/transcript through shared command-replay contracts, show native persistence availability/path cues, browse/filter/sort/inspect/save/load/delete/export sibling save slots, render structured game-client regions, and click host-provided command controls without moving product rules into the renderer. |
+| Macroquad core play parity | A lightweight Macroquad window can choose mounted hosts, run the shared room-command loop, recall commands, restart/change hosts, save/reload/import/export/transcript through shared command-replay contracts, show native persistence availability/path cues, browse/filter/sort/inspect/save/load/delete/export sibling save slots, render structured game-client regions, click host-provided command controls, and expose the native run loop for product-owned launchers without moving product rules into the renderer. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -123,7 +123,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - shared `MuddleClientSnapshot` contract for browser and engine clients
 - shared client host registration metadata for browser and engine clients
 - reusable client text/image/button/group controls attached to snapshots
-- `muddle-macroquad` lightweight game-window client with host chooser, `--host`, `--list-hosts`, `--load`, `--save`, `--import`, `--export`, `--transcript`, command recall, restart/change-host controls, save/reload/import/export shortcuts, native persistence availability/path cues, native save-slot browse/filter/sort/inspect/save/load/delete/export controls, structured region rendering, clickable command hint buttons, and snapshot panel/history/status rendering
+- `muddle-macroquad` lightweight game-window client and reusable native runner with host chooser, `--host`, `--list-hosts`, `--load`, `--save`, `--import`, `--export`, `--transcript`, command recall, restart/change-host controls, save/reload/import/export shortcuts, native persistence availability/path cues, native save-slot browse/filter/sort/inspect/save/load/delete/export controls, structured region rendering, clickable command hint buttons, product-owned launcher entry points, and snapshot panel/history/status rendering
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 
 ## Plan review
@@ -162,12 +162,13 @@ MUDDLE-facing adapter:
 | AMAZE | Expose escape rooms, locks, clues, puzzle state, and command outcomes. |
 | Board-game hosts | Expose tables, seats, pieces, legal moves, and turn outcomes. |
 
-The adapter implements `MuddleHost`; renderers such as `muddle-cli`, product
-launcher binaries, or a future rich TUI/window only talk to MUDDLE crates. MUDDLE
-must not depend back on product repos, so product-owned launchers consume the
-reusable CLI runner instead of being registered directly inside MUDDLE's workspace
-CLI. If a later use case needs dynamic loading, it should be added after at least
-one in-process host adapter proves the contract.
+The adapter implements `MuddleHost`; renderers such as `muddle-cli`,
+`muddle-window`, `muddle-macroquad`, and product launcher binaries only talk to
+MUDDLE crates. MUDDLE must not depend back on product repos, so product-owned
+launchers consume the reusable CLI/window/Macroquad runners instead of being
+registered directly inside MUDDLE's workspace CLI. If a later use case needs
+dynamic loading, it should be added after at least one in-process host adapter
+proves the contract.
 
 ## Non-goals
 
@@ -175,8 +176,8 @@ one in-process host adapter proves the contract.
 - No product-specific game rules in `muddle-core`.
 - No renderer beyond deterministic text/ASCII output until host contracts are
   proven.
-- No rich native GUI/TUI renderer until the local browser-backed window proves
-  the host/session boundary.
+- No product-specific native renderer fork while the shared Macroquad runner can
+  carry product-owned launchers through host registrations.
 - No dynamic plugin loading until explicit in-process adapters have been proven.
 - No runtime dependency on RALLY until a real adapter proves the boundary.
 

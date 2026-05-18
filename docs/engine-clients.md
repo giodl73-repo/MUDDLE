@@ -14,7 +14,9 @@ text, image, button, and layout/group intent.
 
 `muddle-macroquad` is the first engine client. It uses Macroquad's game loop for
 windowing, input, and drawing while the mounted host and MUDDLE session own the
-game state.
+game state. Its crate now exposes the same run loop as reusable library functions
+so product repos can ship native launchers over their own hosts without copying
+renderer code or registering product rules inside MUDDLE.
 
 ## Macroquad core play parity
 
@@ -62,3 +64,8 @@ command hints render as native clickable buttons that submit the same command
 strings as typed input. This keeps "what should be shown" reusable across
 clients while letting each client decide how text, image placeholders, button
 controls, and layout groups are drawn.
+
+Product-owned native launchers should call `run_muddle_macroquad_hosts` with
+their own `MuddleClientHostRegistration` list and a `MuddleMacroquadRunConfig`
+screen title. The product binary owns its Macroquad window attribute and may set
+default save/transcript/import/export paths before entering the shared run loop.
