@@ -1,5 +1,8 @@
 use macroquad::prelude::*;
-use muddle_macroquad::MuddleMacroquadState;
+use muddle_macroquad::{
+    default_macroquad_hosts, macroquad_host_list, macroquad_usage, parse_macroquad_run_options,
+    MuddleMacroquadMode, MuddleMacroquadState,
+};
 
 fn window_conf() -> Conf {
     Conf {
@@ -13,7 +16,41 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut state = MuddleMacroquadState::new().expect("MUDDLE macroquad state starts");
+    let registrations = default_macroquad_hosts();
+    let options = match parse_macroquad_run_options(std::env::args().skip(1)) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!("{error}");
+            eprintln!("{}", macroquad_usage());
+            return;
+        }
+    };
+    if options.show_help {
+        println!("{}", macroquad_usage());
+        println!("{}", macroquad_host_list(&registrations));
+        return;
+    }
+    if options.list_hosts {
+        println!("{}", macroquad_host_list(&registrations));
+        return;
+    }
+
+    let mut state = match options.host_name {
+        Some(host_name) => MuddleMacroquadState::with_host_and_paths(
+            registrations,
+            &host_name,
+            options.load_path,
+            options.save_path,
+            options.transcript_path,
+        ),
+        None => MuddleMacroquadState::with_chooser_and_paths(
+            registrations,
+            options.load_path,
+            options.save_path,
+            options.transcript_path,
+        ),
+    }
+    .expect("MUDDLE macroquad state starts");
 
     loop {
         clear_background(Color::from_rgba(18, 23, 30, 255));
@@ -24,8 +61,45 @@ async fn main() {
         if is_key_pressed(KeyCode::Backspace) {
             state.backspace();
         }
+        if is_key_pressed(KeyCode::Up) {
+            match state.mode() {
+                MuddleMacroquadMode::HostChooser => state.select_previous_host(),
+                MuddleMacroquadMode::Playing => state.recall_previous_command(),
+            }
+        }
+        if is_key_pressed(KeyCode::Down) {
+            match state.mode() {
+                MuddleMacroquadMode::HostChooser => state.select_next_host(),
+                MuddleMacroquadMode::Playing => state.recall_next_command(),
+            }
+        }
         if is_key_pressed(KeyCode::Enter) {
-            state.submit_input();
+            match state.mode() {
+                MuddleMacroquadMode::HostChooser => {
+                    if let Err(error) = state.choose_selected_host() {
+                        eprintln!("{error}");
+                    }
+                }
+                MuddleMacroquadMode::Playing => state.submit_input(),
+            }
+        }
+        if is_key_pressed(KeyCode::F2) {
+            state.change_host();
+        }
+        if is_key_pressed(KeyCode::F5) {
+            if let Err(error) = state.restart_host() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::F6) {
+            if let Err(error) = state.save_now() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::F7) {
+            if let Err(error) = state.reload_save() {
+                eprintln!("{error}");
+            }
         }
         if is_key_pressed(KeyCode::Escape) {
             break;

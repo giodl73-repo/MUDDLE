@@ -9,18 +9,11 @@ use std::{
 
 use muddle_cli::{render_transcript, MuddleCliHostInfo};
 use muddle_core::{
-    MuddleClientInfo, MuddleClientPanels, MuddleClientSnapshot, MuddleCommand, MuddleHost,
-    MuddleSession, MuddleSessionSave,
+    MuddleClientHostRegistration, MuddleClientInfo, MuddleClientPanels, MuddleClientSnapshot,
+    MuddleCommand, MuddleHost, MuddleSession, MuddleSessionSave,
 };
 
-#[derive(Clone, Copy)]
-pub struct MuddleWindowHostRegistration {
-    pub name: &'static str,
-    pub category: &'static str,
-    pub description: &'static str,
-    pub suggested_commands: &'static str,
-    pub create: fn() -> Box<dyn MuddleHost>,
-}
+pub type MuddleWindowHostRegistration = MuddleClientHostRegistration;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MuddleWindowRunOptions {

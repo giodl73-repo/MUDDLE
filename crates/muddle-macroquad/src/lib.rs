@@ -1,78 +1,629 @@
-use muddle_core::{MuddleClientInfo, MuddleClientSnapshot, MuddleCommand, MuddleSession};
+use std::{fs, io, path::PathBuf};
+
+use muddle_amaze_spike::AmazeSilverstreamHost;
+use muddle_banish_spike::BanishPilgrimLossHost;
+use muddle_cli::{render_transcript, MuddleCliHostInfo};
+use muddle_core::{
+    MuddleClientHostRegistration, MuddleClientSnapshot, MuddleCommand, MuddleHost, MuddleSession,
+    MuddleSessionSave,
+};
 use muddle_mock_sim::MuddleMockSimHost;
 
+const DEFAULT_HOST: &str = "mock-labyrinth";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadRunOptions {
+    pub host_name: Option<String>,
+    pub list_hosts: bool,
+    pub show_help: bool,
+    pub load_path: Option<PathBuf>,
+    pub save_path: Option<PathBuf>,
+    pub transcript_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MuddleMacroquadMode {
+    HostChooser,
+    Playing,
+}
+
 pub struct MuddleMacroquadState {
-    host: MuddleMockSimHost,
+    registrations: Vec<MuddleClientHostRegistration>,
+    registration: MuddleClientHostRegistration,
+    host: Box<dyn MuddleHost>,
     session: MuddleSession,
+    mode: MuddleMacroquadMode,
     input: String,
+    host_filter: String,
+    selected_host_index: usize,
+    command_history: Vec<String>,
+    command_history_cursor: Option<usize>,
     last_status: String,
+    load_path: Option<PathBuf>,
+    save_path: Option<PathBuf>,
+    transcript_path: Option<PathBuf>,
+}
+
+impl Default for MuddleMacroquadRunOptions {
+    fn default() -> Self {
+        Self {
+            host_name: None,
+            list_hosts: false,
+            show_help: false,
+            load_path: None,
+            save_path: None,
+            transcript_path: None,
+        }
+    }
 }
 
 impl MuddleMacroquadState {
     pub fn new() -> Result<Self, String> {
-        let host = MuddleMockSimHost::new();
-        let session = MuddleSession::for_host(&host).map_err(|error| format!("{error:?}"))?;
+        Self::with_host(default_macroquad_hosts(), DEFAULT_HOST)
+    }
+
+    pub fn chooser() -> Result<Self, String> {
+        Self::with_chooser(default_macroquad_hosts())
+    }
+
+    pub fn with_chooser(registrations: Vec<MuddleClientHostRegistration>) -> Result<Self, String> {
+        Self::with_chooser_and_paths(registrations, None, None, None)
+    }
+
+    pub fn with_chooser_and_paths(
+        registrations: Vec<MuddleClientHostRegistration>,
+        load_path: Option<PathBuf>,
+        save_path: Option<PathBuf>,
+        transcript_path: Option<PathBuf>,
+    ) -> Result<Self, String> {
+        let mut state = Self::with_host_and_paths(
+            registrations,
+            DEFAULT_HOST,
+            load_path,
+            save_path,
+            transcript_path,
+        )?;
+        state.mode = MuddleMacroquadMode::HostChooser;
+        state.last_status = "Choose a host with Up/Down and Enter. Type to filter.".to_string();
+        Ok(state)
+    }
+
+    pub fn with_host(
+        registrations: Vec<MuddleClientHostRegistration>,
+        host_name: &str,
+    ) -> Result<Self, String> {
+        Self::with_host_and_paths(registrations, host_name, None, None, None)
+    }
+
+    pub fn with_host_and_paths(
+        registrations: Vec<MuddleClientHostRegistration>,
+        host_name: &str,
+        load_path: Option<PathBuf>,
+        save_path: Option<PathBuf>,
+        transcript_path: Option<PathBuf>,
+    ) -> Result<Self, String> {
+        if registrations.is_empty() {
+            return Err("muddle-macroquad requires at least one host registration".to_string());
+        }
+
+        let selected_host_index = registrations
+            .iter()
+            .position(|registration| registration.name == host_name)
+            .ok_or_else(|| format!("Unknown MUDDLE Macroquad host `{host_name}`."))?;
+        let registration = registrations[selected_host_index];
+        let (host, session, last_status) = start_session(registration, load_path.as_ref())?;
+
         Ok(Self {
+            registrations,
+            registration,
             host,
             session,
+            mode: MuddleMacroquadMode::Playing,
             input: String::new(),
-            last_status: "Type a command and press Enter. Try: look".to_string(),
+            host_filter: String::new(),
+            selected_host_index,
+            command_history: Vec::new(),
+            command_history_cursor: None,
+            last_status,
+            load_path,
+            save_path,
+            transcript_path,
         })
+    }
+
+    pub fn mode(&self) -> MuddleMacroquadMode {
+        self.mode
     }
 
     pub fn input(&self) -> &str {
         &self.input
     }
 
+    pub fn host_filter(&self) -> &str {
+        &self.host_filter
+    }
+
+    pub fn active_host_name(&self) -> &str {
+        self.registration.name
+    }
+
+    pub fn save_path(&self) -> Option<&PathBuf> {
+        self.save_path.as_ref()
+    }
+
+    pub fn transcript_path(&self) -> Option<&PathBuf> {
+        self.transcript_path.as_ref()
+    }
+
+    pub fn turns(&self) -> usize {
+        self.session.transcript.len()
+    }
+
     pub fn push_char(&mut self, character: char) {
-        if !character.is_control() {
-            self.input.push(character);
+        if character.is_control() {
+            return;
+        }
+
+        match self.mode {
+            MuddleMacroquadMode::HostChooser => {
+                self.host_filter.push(character);
+                self.keep_selected_host_visible();
+            }
+            MuddleMacroquadMode::Playing => {
+                self.input.push(character);
+                self.command_history_cursor = None;
+            }
         }
     }
 
     pub fn backspace(&mut self) {
-        self.input.pop();
+        match self.mode {
+            MuddleMacroquadMode::HostChooser => {
+                self.host_filter.pop();
+                self.keep_selected_host_visible();
+            }
+            MuddleMacroquadMode::Playing => {
+                self.input.pop();
+                self.command_history_cursor = None;
+            }
+        }
+    }
+
+    pub fn select_next_host(&mut self) {
+        self.select_relative_host(1);
+    }
+
+    pub fn select_previous_host(&mut self) {
+        self.select_relative_host(-1);
+    }
+
+    pub fn choose_selected_host(&mut self) -> Result<(), String> {
+        let selected = self
+            .selected_visible_host_index()
+            .ok_or_else(|| "No host matches the current filter.".to_string())?;
+        let name = self.registrations[selected].name;
+        self.start_host(name)
+    }
+
+    pub fn change_host(&mut self) {
+        self.mode = MuddleMacroquadMode::HostChooser;
+        self.input.clear();
+        self.command_history_cursor = None;
+        self.last_status = "Choose a host with Up/Down and Enter. Type to filter.".to_string();
+    }
+
+    pub fn restart_host(&mut self) -> Result<(), String> {
+        let name = self.registration.name;
+        self.start_host(name)
+    }
+
+    pub fn save_now(&mut self) -> io::Result<()> {
+        if self.save_path.is_none() && self.transcript_path.is_none() {
+            self.last_status =
+                "Start muddle-macroquad with --save or --transcript before saving.".to_string();
+            return Ok(());
+        }
+
+        if let Some(path) = &self.save_path {
+            fs::write(
+                path,
+                self.session.save_for_host(self.host.as_ref()).encode(),
+            )?;
+        }
+        if let Some(path) = &self.transcript_path {
+            fs::write(
+                path,
+                render_transcript(
+                    MuddleCliHostInfo {
+                        name: self.registration.name,
+                        description: self.registration.description,
+                        suggested_commands: self.registration.suggested_commands,
+                    },
+                    &self.session,
+                ),
+            )?;
+        }
+
+        self.last_status = match (&self.save_path, &self.transcript_path) {
+            (Some(save_path), Some(transcript_path)) => format!(
+                "Saved session to {} and transcript to {}.",
+                save_path.display(),
+                transcript_path.display()
+            ),
+            (Some(save_path), None) => format!("Saved session to {}.", save_path.display()),
+            (None, Some(transcript_path)) => {
+                format!("Saved transcript to {}.", transcript_path.display())
+            }
+            (None, None) => unreachable!("empty persistence targets are handled before saving"),
+        };
+        Ok(())
+    }
+
+    pub fn reload_save(&mut self) -> io::Result<()> {
+        let Some(path) = &self.save_path else {
+            self.last_status = "Start muddle-macroquad with --save before reloading.".to_string();
+            return Ok(());
+        };
+        let encoded = fs::read_to_string(path)?;
+        let save = MuddleSessionSave::decode(&encoded)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}")))?;
+        let mut host = (self.registration.create)();
+        let session = MuddleSession::resume_for_host(host.as_mut(), &save)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}")))?;
+
+        self.host = host;
+        self.session = session;
+        self.input.clear();
+        self.command_history_cursor = None;
+        self.last_status = format!(
+            "Loaded MUDDLE session from {} with {} transcript turns.",
+            path.display(),
+            self.session.transcript.len()
+        );
+        Ok(())
+    }
+
+    pub fn recall_previous_command(&mut self) {
+        if self.command_history.is_empty() || self.mode != MuddleMacroquadMode::Playing {
+            return;
+        }
+
+        let index = self
+            .command_history_cursor
+            .map(|index| index.saturating_sub(1))
+            .unwrap_or_else(|| self.command_history.len() - 1);
+        self.command_history_cursor = Some(index);
+        self.input = self.command_history[index].clone();
+    }
+
+    pub fn recall_next_command(&mut self) {
+        if self.command_history.is_empty() || self.mode != MuddleMacroquadMode::Playing {
+            return;
+        }
+
+        match self.command_history_cursor {
+            Some(index) if index + 1 < self.command_history.len() => {
+                let next = index + 1;
+                self.command_history_cursor = Some(next);
+                self.input = self.command_history[next].clone();
+            }
+            _ => {
+                self.command_history_cursor = None;
+                self.input.clear();
+            }
+        }
     }
 
     pub fn submit_input(&mut self) {
+        if self.mode != MuddleMacroquadMode::Playing {
+            return;
+        }
+
         let command = self.input.trim().to_string();
         self.input.clear();
+        self.command_history_cursor = None;
+        self.submit_command(command);
+    }
+
+    pub fn submit_command_hint(&mut self, index: usize) {
+        if self.mode != MuddleMacroquadMode::Playing {
+            return;
+        }
+
+        if let Some(hint) = self.snapshot().commands.get(index) {
+            self.submit_command(hint.command.clone());
+        }
+    }
+
+    pub fn display_lines(&self) -> Vec<String> {
+        match self.mode {
+            MuddleMacroquadMode::HostChooser => self.host_chooser_lines(),
+            MuddleMacroquadMode::Playing => snapshot_display_lines(&self.snapshot(), &self.input),
+        }
+    }
+
+    pub fn snapshot(&self) -> MuddleClientSnapshot {
+        self.session.client_snapshot(
+            self.host.as_ref(),
+            self.registration.client_info(),
+            self.last_status.clone(),
+        )
+    }
+
+    fn start_host(&mut self, host_name: &str) -> Result<(), String> {
+        let selected_host_index = self
+            .registrations
+            .iter()
+            .position(|registration| registration.name == host_name)
+            .ok_or_else(|| format!("Unknown MUDDLE Macroquad host `{host_name}`."))?;
+        let registration = self.registrations[selected_host_index];
+        let (host, session, last_status) = start_session(registration, self.load_path.as_ref())?;
+
+        self.registration = registration;
+        self.host = host;
+        self.session = session;
+        self.mode = MuddleMacroquadMode::Playing;
+        self.input.clear();
+        self.selected_host_index = selected_host_index;
+        self.command_history.clear();
+        self.command_history_cursor = None;
+        self.last_status = last_status;
+        Ok(())
+    }
+
+    fn submit_command(&mut self, command: String) {
+        let command = command.trim().to_string();
         if command.is_empty() {
             return;
         }
 
+        self.command_history.push(command.clone());
         match self
             .session
-            .play_turn(&mut self.host, MuddleCommand::parse(&command))
+            .play_turn(self.host.as_mut(), MuddleCommand::parse(&command))
         {
             Ok(turn) => self.last_status = turn.response.clone(),
             Err(error) => self.last_status = format!("Command failed: {error:?}"),
         }
     }
 
-    pub fn display_lines(&self) -> Vec<String> {
-        snapshot_display_lines(&self.snapshot(), &self.input)
+    fn host_chooser_lines(&self) -> Vec<String> {
+        let mut lines = vec![
+            "MUDDLE Macroquad Host Chooser".to_string(),
+            "Type to filter. Up/Down selects. Enter starts. Escape quits.".to_string(),
+            format!("Filter: {}", self.host_filter),
+            String::new(),
+        ];
+
+        let visible = self.filtered_host_indices();
+        if visible.is_empty() {
+            lines.push("No hosts match the current filter.".to_string());
+            return lines;
+        }
+
+        let selected = self.selected_visible_host_index();
+        let mut last_category = "";
+        for index in visible {
+            let registration = self.registrations[index];
+            if registration.category != last_category {
+                if !last_category.is_empty() {
+                    lines.push(String::new());
+                }
+                lines.push(format!("[{}]", registration.category));
+                last_category = registration.category;
+            }
+            let marker = if Some(index) == selected { ">" } else { " " };
+            lines.push(format!(
+                "{marker} {} - {}",
+                registration.name, registration.description
+            ));
+        }
+
+        lines
     }
 
-    pub fn snapshot(&self) -> MuddleClientSnapshot {
-        self.session.client_snapshot(
-            &self.host,
-            MuddleClientInfo {
-                host: "mock-labyrinth".to_string(),
-                description: "Macroquad mock-labyrinth engine spike".to_string(),
-                suggested_commands: "look, gather ember, read glyphs, feed ember, go antechamber"
-                    .to_string(),
-            },
-            self.last_status.clone(),
-        )
+    fn select_relative_host(&mut self, delta: isize) {
+        let visible = self.filtered_host_indices();
+        if visible.is_empty() {
+            return;
+        }
+
+        let current = self
+            .selected_visible_host_index()
+            .and_then(|selected| visible.iter().position(|index| *index == selected))
+            .unwrap_or(0);
+        let next = (current as isize + delta).rem_euclid(visible.len() as isize) as usize;
+        self.selected_host_index = visible[next];
     }
+
+    fn keep_selected_host_visible(&mut self) {
+        if self.selected_visible_host_index().is_none() {
+            if let Some(first) = self.filtered_host_indices().first() {
+                self.selected_host_index = *first;
+            }
+        }
+    }
+
+    fn selected_visible_host_index(&self) -> Option<usize> {
+        let visible = self.filtered_host_indices();
+        if visible.contains(&self.selected_host_index) {
+            Some(self.selected_host_index)
+        } else {
+            visible.first().copied()
+        }
+    }
+
+    fn filtered_host_indices(&self) -> Vec<usize> {
+        let filter = self.host_filter.trim().to_ascii_lowercase();
+        self.registrations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, registration)| {
+                let matches = filter.is_empty()
+                    || registration.name.to_ascii_lowercase().contains(&filter)
+                    || registration.category.to_ascii_lowercase().contains(&filter)
+                    || registration
+                        .description
+                        .to_ascii_lowercase()
+                        .contains(&filter)
+                    || registration
+                        .suggested_commands
+                        .to_ascii_lowercase()
+                        .contains(&filter);
+                matches.then_some(index)
+            })
+            .collect()
+    }
+}
+
+pub fn default_macroquad_hosts() -> Vec<MuddleClientHostRegistration> {
+    vec![
+        MuddleClientHostRegistration {
+            name: DEFAULT_HOST,
+            category: "Fixtures",
+            description: "Labyrinth mock sim: BANISH-like resource state plus AMAZE-like locks.",
+            suggested_commands:
+                "`look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`.",
+            create: || Box::new(MuddleMockSimHost::new()),
+        },
+        MuddleClientHostRegistration {
+            name: "banish-pilgrim-loss",
+            category: "Games",
+            description: "BANISH Pilgrim Loss adapter spike: launcher, campaign brief, and migration trail.",
+            suggested_commands:
+                "`look`, `choose resume`, `inspect plan`, `inspect manifest`, `go trail`, `resolve loss`.",
+            create: || Box::new(BanishPilgrimLossHost::new()),
+        },
+        MuddleClientHostRegistration {
+            name: "amaze-silverstream",
+            category: "Games",
+            description: "AMAZE Silverstream adapter spike: clue, signal, hatch, and escape path.",
+            suggested_commands:
+                "`look`, `go receiver`, `inspect clue`, `tune signal`, `unlock hatch`, `go hatch`.",
+            create: || Box::new(AmazeSilverstreamHost::new()),
+        },
+    ]
+}
+
+fn start_session(
+    registration: MuddleClientHostRegistration,
+    load_path: Option<&PathBuf>,
+) -> Result<(Box<dyn MuddleHost>, MuddleSession, String), String> {
+    let mut host = (registration.create)();
+    if let Some(path) = load_path {
+        let encoded = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let save = MuddleSessionSave::decode(&encoded).map_err(|error| format!("{error:?}"))?;
+        let session = MuddleSession::resume_for_host(host.as_mut(), &save)
+            .map_err(|error| format!("{error:?}"))?;
+        let last_status = format!(
+            "Loaded MUDDLE session from {} with {} transcript turns.",
+            path.display(),
+            session.transcript.len()
+        );
+        Ok((host, session, last_status))
+    } else {
+        let session =
+            MuddleSession::for_host(host.as_ref()).map_err(|error| format!("{error:?}"))?;
+        Ok((
+            host,
+            session,
+            format!(
+                "Host mounted: {}. Type a command or press F2 to change host.",
+                registration.name
+            ),
+        ))
+    }
+}
+
+pub fn parse_macroquad_run_options(
+    args: impl IntoIterator<Item = String>,
+) -> Result<MuddleMacroquadRunOptions, String> {
+    let mut options = MuddleMacroquadRunOptions::default();
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--help" | "-h" => options.show_help = true,
+            "--list-hosts" => options.list_hosts = true,
+            "--host" => {
+                options.host_name = Some(
+                    args.next()
+                        .ok_or_else(|| "`--host` requires a host name.".to_string())?,
+                );
+            }
+            "--load" => {
+                options.load_path = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| "`--load` requires a path.".to_string())?,
+                ));
+            }
+            "--save" => {
+                options.save_path = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| "`--save` requires a path.".to_string())?,
+                ));
+            }
+            "--transcript" => {
+                options.transcript_path =
+                    Some(PathBuf::from(args.next().ok_or_else(|| {
+                        "`--transcript` requires a path.".to_string()
+                    })?));
+            }
+            _ => {
+                if let Some(value) = arg.strip_prefix("--host=") {
+                    if value.is_empty() {
+                        return Err("`--host` requires a host name.".to_string());
+                    }
+                    options.host_name = Some(value.to_string());
+                } else if let Some(value) = arg.strip_prefix("--load=") {
+                    if value.is_empty() {
+                        return Err("`--load` requires a path.".to_string());
+                    }
+                    options.load_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--save=") {
+                    if value.is_empty() {
+                        return Err("`--save` requires a path.".to_string());
+                    }
+                    options.save_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--transcript=") {
+                    if value.is_empty() {
+                        return Err("`--transcript` requires a path.".to_string());
+                    }
+                    options.transcript_path = Some(PathBuf::from(value));
+                } else {
+                    return Err(format!("Unknown argument `{arg}`."));
+                }
+            }
+        }
+    }
+
+    Ok(options)
+}
+
+pub fn macroquad_usage() -> &'static str {
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--list-hosts] [--help]"
+}
+
+pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
+    let mut lines = vec!["Available MUDDLE Macroquad hosts:".to_string()];
+    for registration in registrations {
+        lines.push(format!(
+            "  {} [{}] - {}",
+            registration.name, registration.category, registration.description
+        ));
+    }
+    lines.join("\n")
 }
 
 pub fn snapshot_display_lines(snapshot: &MuddleClientSnapshot, input: &str) -> Vec<String> {
     let mut lines = Vec::new();
     lines.push("MUDDLE Macroquad Runner".to_string());
-    lines.push("Esc quits. Enter submits. Backspace edits.".to_string());
-    lines.push(format!("Host: {}", snapshot.host));
+    lines.push(
+        "Esc quits. F2 changes host. F5 restarts. F6 saves. F7 reloads. Up/Down recalls commands. Enter submits.".to_string(),
+    );
+    lines.push(format!(
+        "Host: {} - {}",
+        snapshot.host, snapshot.description
+    ));
     lines.push(format!("Input: {input}"));
     lines.push(String::new());
 
@@ -87,9 +638,26 @@ pub fn snapshot_display_lines(snapshot: &MuddleClientSnapshot, input: &str) -> V
             .iter()
             .map(|resource| format!("{}: {}", resource.label, resource.value)),
     );
+    lines.extend(
+        snapshot
+            .panels
+            .inventory
+            .iter()
+            .map(|item| format!("{}: {}", item.label, item.detail)),
+    );
+    for objective in &snapshot.panels.objectives {
+        lines.push(format!("Objective: {objective}"));
+    }
     if let Some(map) = &snapshot.panels.map {
         lines.push(map.clone());
     }
+    if !snapshot.panels.recent_log.is_empty() {
+        lines.push(format!(
+            "Recent log: {}",
+            snapshot.panels.recent_log.join(" | ")
+        ));
+    }
+
     let commands = snapshot
         .commands
         .iter()
@@ -98,12 +666,15 @@ pub fn snapshot_display_lines(snapshot: &MuddleClientSnapshot, input: &str) -> V
         .join(" | ");
     if !commands.is_empty() {
         lines.push(format!("Commands: {commands}"));
+    } else if !snapshot.suggested_commands.is_empty() {
+        lines.push(format!("Try: {}", snapshot.suggested_commands));
     }
 
     lines.push(String::new());
     lines.push(format!("Status: {}", snapshot.last_response));
+    lines.push(format!("Turns: {}", snapshot.turns));
     lines.push("Recent history".to_string());
-    for turn in snapshot.history.iter().rev().take(5) {
+    for turn in snapshot.history.iter().rev().take(8) {
         lines.push(format!(
             "{}. {} @ {} -> {}",
             turn.turn,
@@ -123,6 +694,7 @@ mod tests {
     fn macroquad_state_starts_with_mock_room() {
         let state = MuddleMacroquadState::new().expect("state starts");
         let lines = state.display_lines();
+        assert_eq!(state.mode(), MuddleMacroquadMode::Playing);
         assert!(lines.iter().any(|line| line.contains("Labyrinth Camp")));
         assert!(lines.iter().any(|line| line.contains("Commands:")));
     }
@@ -135,10 +707,104 @@ mod tests {
         }
         state.submit_input();
         assert!(state.input().is_empty());
-        assert_eq!(state.session.transcript.len(), 1);
+        assert_eq!(state.turns(), 1);
         assert!(state
             .display_lines()
             .iter()
             .any(|line| line.contains("Recent history")));
+    }
+
+    #[test]
+    fn macroquad_chooser_filters_and_starts_hosts() {
+        let mut state = MuddleMacroquadState::chooser().expect("state starts");
+        assert_eq!(state.mode(), MuddleMacroquadMode::HostChooser);
+        for character in "silverstream".chars() {
+            state.push_char(character);
+        }
+        assert_eq!(state.host_filter(), "silverstream");
+        state
+            .choose_selected_host()
+            .expect("filtered host can be chosen");
+        assert_eq!(state.mode(), MuddleMacroquadMode::Playing);
+        assert_eq!(state.active_host_name(), "amaze-silverstream");
+    }
+
+    #[test]
+    fn macroquad_state_recalls_commands() {
+        let mut state = MuddleMacroquadState::new().expect("state starts");
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        state.recall_previous_command();
+        assert_eq!(state.input(), "look");
+        state.recall_next_command();
+        assert_eq!(state.input(), "");
+    }
+
+    #[test]
+    fn macroquad_state_restarts_current_host() {
+        let mut state = MuddleMacroquadState::new().expect("state starts");
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        assert_eq!(state.turns(), 1);
+        state.restart_host().expect("host restarts");
+        assert_eq!(state.turns(), 0);
+        assert_eq!(state.active_host_name(), DEFAULT_HOST);
+    }
+
+    #[test]
+    fn macroquad_args_parse_host_and_list() {
+        let options = parse_macroquad_run_options([
+            "--host".to_string(),
+            "banish-pilgrim-loss".to_string(),
+            "--save".to_string(),
+            "play.muddle".to_string(),
+            "--list-hosts".to_string(),
+        ])
+        .expect("args parse");
+        assert_eq!(options.host_name.as_deref(), Some("banish-pilgrim-loss"));
+        assert_eq!(options.save_path, Some(PathBuf::from("play.muddle")));
+        assert!(options.list_hosts);
+    }
+
+    #[test]
+    fn macroquad_state_saves_transcript_and_reloads() {
+        let unique = format!(
+            "muddle-macroquad-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time is after epoch")
+                .as_nanos()
+        );
+        let save_path = std::env::temp_dir().join(format!("{unique}.muddle"));
+        let transcript_path = std::env::temp_dir().join(format!("{unique}.txt"));
+
+        let mut state = MuddleMacroquadState::with_host_and_paths(
+            default_macroquad_hosts(),
+            DEFAULT_HOST,
+            None,
+            Some(save_path.clone()),
+            Some(transcript_path.clone()),
+        )
+        .expect("state starts");
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        state.save_now().expect("state saves");
+        assert!(save_path.exists());
+        assert!(transcript_path.exists());
+
+        state.restart_host().expect("host restarts");
+        assert_eq!(state.turns(), 0);
+        state.reload_save().expect("state reloads");
+        assert_eq!(state.turns(), 1);
+
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(transcript_path);
     }
 }

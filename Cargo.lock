@@ -220,6 +220,9 @@ name = "muddle-macroquad"
 version = "0.1.0"
 dependencies = [
  "macroquad",
+ "muddle-amaze-spike",
+ "muddle-banish-spike",
+ "muddle-cli",
  "muddle-core",
  "muddle-mock-sim",
 ]

@@ -13,5 +13,8 @@ path = "src/main.rs"
 
 [dependencies]
 macroquad = "0.4"
+muddle-amaze-spike = { path = "../muddle-amaze-spike" }
+muddle-banish-spike = { path = "../muddle-banish-spike" }
+muddle-cli = { path = "../muddle-cli" }
 muddle-core = { path = "../muddle-core" }
 muddle-mock-sim = { path = "../muddle-mock-sim" }

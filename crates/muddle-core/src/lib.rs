@@ -48,6 +48,15 @@ pub struct MuddleClientInfo {
     pub suggested_commands: String,
 }
 
+#[derive(Clone, Copy)]
+pub struct MuddleClientHostRegistration {
+    pub name: &'static str,
+    pub category: &'static str,
+    pub description: &'static str,
+    pub suggested_commands: &'static str,
+    pub create: fn() -> Box<dyn MuddleHost>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MuddleClientSnapshot {
     pub host: String,
@@ -194,6 +203,16 @@ impl MuddleCommand {
         match &self.target {
             Some(target) => format!("{} {}", self.verb, target),
             None => self.verb.clone(),
+        }
+    }
+}
+
+impl MuddleClientHostRegistration {
+    pub fn client_info(self) -> MuddleClientInfo {
+        MuddleClientInfo {
+            host: self.name.to_string(),
+            description: self.description.to_string(),
+            suggested_commands: self.suggested_commands.to_string(),
         }
     }
 }

@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-macroquad` | Lightweight Macroquad game-window spike proving the shared client snapshot can run inside a Rust engine loop. |
+| `muddle-macroquad` | Lightweight Macroquad game-window client with a native host chooser, command input, command recall, restart/change-host controls, and shared snapshot rendering inside a Rust engine loop. |
 | `muddle-window` | Reusable local browser-backed window runner, grouped/filterable host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
@@ -77,6 +77,11 @@ cargo run -p muddle-window -- --open
 cargo run -p muddle-window -- --host portfolio-showcase --open
 cargo run -p muddle-window -- --host banish-pilgrim-loss --open
 cargo run -p muddle-window -- --host banish-pilgrim-loss --save pilgrim-loss.window.muddle --transcript pilgrim-loss.window.txt --open
+cargo run -p muddle-macroquad -- --list-hosts
+cargo run -p muddle-macroquad
+cargo run -p muddle-macroquad -- --host mock-labyrinth
+cargo run -p muddle-macroquad -- --host banish-pilgrim-loss
+cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt
 ```
 
 The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
@@ -122,6 +127,20 @@ slot-name field so load/export/delete actions clearly target that slot. A
 selected slot can also export its save text into the browser text area without
 loading the slot, while import/export uses the same portable command-replay save
 text.
+
+The Macroquad client is documented in
+[`docs\engine-clients.md`](docs/engine-clients.md). It opens a native game loop
+over the same `MuddleClientSnapshot` contract and now starts with a filterable
+host chooser when no host is provided. `--list-hosts` and `--host <name>` mirror
+the browser/CLI host-selection shape for the in-repo mock, BANISH, and AMAZE
+adapter spikes. It also accepts `--load`, `--save`, and `--transcript` for the
+same command-replay save and transcript formats used by the CLI/window clients.
+In play mode, Enter submits commands, Up/Down recalls command history, F2
+returns to host selection, F5 restarts the current host, F6 saves configured
+outputs, F7 reloads the configured save path, and Escape quits. Macroquad renders
+room cards, resource/inventory/objective/map panels, command hints, visible
+status, turn count, and recent history from the shared snapshot while leaving
+product rules in the mounted host.
 
 ## Host extension model
 
