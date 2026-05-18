@@ -100,8 +100,8 @@ also has in-session **Save now**, **Reload save**, named **Save slot**/**Load
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured
-`--save` path, while import/export uses the same portable command-replay save
-text.
+`--save` path and show their path, size, and modified time in the browser, while
+import/export uses the same portable command-replay save text.
 
 ## Host extension model
 

@@ -50,9 +50,10 @@ The **Save now** button writes the configured `--save` and/or `--transcript`
 paths immediately. The **Reload save** button reloads the configured `--save`
 path without restarting the local server. The save-slot controls write, load,
 and delete named sibling save files derived from the configured `--save` path;
-slot names may use letters, numbers, dash, and underscore. The import/export
-controls copy the current command-replay save text into a browser text area and
-can import compatible save text back into the currently mounted host.
+slot names may use letters, numbers, dash, and underscore. The slot list shows
+each slot's path, byte size, and modified time. The import/export controls copy
+the current command-replay save text into a browser text area and can import
+compatible save text back into the currently mounted host.
 The **Restart host** button resets the currently selected host to a fresh
 session while preserving any `--save` and `--transcript` output paths.
 

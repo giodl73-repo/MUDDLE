@@ -4,6 +4,7 @@ use std::{
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::Command,
+    time::UNIX_EPOCH,
 };
 
 use muddle_cli::{render_transcript, write_play_panels, MuddleCliHostInfo};
@@ -36,6 +37,14 @@ struct MuddleWindowState {
     last_response: String,
     save_path: Option<PathBuf>,
     transcript_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SaveSlotDetail {
+    name: String,
+    path: PathBuf,
+    bytes: u64,
+    modified_unix: u64,
 }
 
 impl Default for MuddleWindowRunOptions {
@@ -242,6 +251,12 @@ fn handle_connection(
             "200 OK",
             "application/json",
             &render_save_slots_json(state)?,
+        ),
+        ("GET", "/save-slot-details") => write_response(
+            &mut stream,
+            "200 OK",
+            "application/json",
+            &render_save_slot_details_json(state)?,
         ),
         ("GET", "/export-save") => write_response(
             &mut stream,
@@ -642,6 +657,13 @@ fn normalize_save_slot_name(slot_name: &str) -> Result<String, String> {
 }
 
 fn list_save_slots(state: &MuddleWindowState) -> io::Result<Vec<String>> {
+    Ok(list_save_slot_details(state)?
+        .into_iter()
+        .map(|slot| slot.name)
+        .collect())
+}
+
+fn list_save_slot_details(state: &MuddleWindowState) -> io::Result<Vec<SaveSlotDetail>> {
     let Some(save_path) = &state.save_path else {
         return Ok(Vec::new());
     };
@@ -679,10 +701,22 @@ fn list_save_slots(state: &MuddleWindowState) -> io::Result<Vec<String>> {
             &without_prefix[..without_prefix.len() - extension.len()]
         };
         if normalize_save_slot_name(slot_name).is_ok() {
-            slots.push(slot_name.to_string());
+            let metadata = entry.metadata()?;
+            let modified_unix = metadata
+                .modified()
+                .ok()
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_secs())
+                .unwrap_or_default();
+            slots.push(SaveSlotDetail {
+                name: slot_name.to_string(),
+                path: entry.path(),
+                bytes: metadata.len(),
+                modified_unix,
+            });
         }
     }
-    slots.sort();
+    slots.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(slots)
 }
 
@@ -736,9 +770,10 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
     let commands = render_commands_json(state);
     let history = render_history_json(state);
     let save_slots = render_save_slots_json(state)?;
+    let save_slot_details = render_save_slot_details_json(state)?;
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"commands\":{commands},\"history\":{history}}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history}}}",
         json_escape(state.registration.name),
         json_escape(state.registration.description),
         json_escape(state.registration.suggested_commands),
@@ -756,6 +791,23 @@ fn render_save_slots_json(state: &MuddleWindowState) -> io::Result<String> {
     let slots = list_save_slots(state)?
         .iter()
         .map(|slot| format!("\"{}\"", json_escape(slot)))
+        .collect::<Vec<_>>()
+        .join(",");
+    Ok(format!("[{slots}]"))
+}
+
+fn render_save_slot_details_json(state: &MuddleWindowState) -> io::Result<String> {
+    let slots = list_save_slot_details(state)?
+        .iter()
+        .map(|slot| {
+            format!(
+                "{{\"name\":\"{}\",\"path\":\"{}\",\"bytes\":{},\"modified_unix\":{}}}",
+                json_escape(&slot.name),
+                json_escape(&slot.path.display().to_string()),
+                slot.bytes,
+                slot.modified_unix
+            )
+        })
         .collect::<Vec<_>>()
         .join(",");
     Ok(format!("[{slots}]"))
@@ -908,6 +960,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     #client { display: none; }
     .category-heading { margin: 1.25rem 0 .35rem; color: #d0e8ff; }
     .empty-hosts { border: 1px dashed #42566b; border-radius: 8px; padding: 1rem; }
+    .slot-details { list-style: none; padding-left: 0; }
+    .slot-details li { background: #0f1318; border: 1px solid #263241; border-radius: 8px; margin: .5rem 0; padding: .5rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
   </style>
@@ -937,6 +991,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
       <button id="delete-slot" class="secondary" type="button">Delete slot</button>
+      <ul id="save-slot-details" class="slot-details"></ul>
       <h2>Import / export</h2>
       <textarea id="save-export" rows="8" placeholder="exported save text"></textarea>
       <button id="export-save" class="secondary" type="button">Export save text</button>
@@ -1037,31 +1092,47 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('response').textContent = state.last_response;
       renderCommandButtons(state.commands || []);
       renderHistory(state.history || []);
-      renderSaveSlots(state.save_slots || []);
+      renderSaveSlots(state.save_slot_details || []);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
       document.getElementById('persistence').textContent = persistence.join(' | ');
     }
 
-    function renderSaveSlots(slots) {
+    function renderSaveSlots(slotDetails) {
       const list = document.getElementById('save-slot-list');
+      const details = document.getElementById('save-slot-details');
       const selected = list.value;
       list.innerHTML = '';
-      if (!slots.length) {
+      details.innerHTML = '';
+      if (!slotDetails.length) {
         const option = document.createElement('option');
         option.value = '';
         option.textContent = 'No save slots yet';
         list.appendChild(option);
+        const item = document.createElement('li');
+        item.className = 'muted';
+        item.textContent = 'No save slots yet.';
+        details.appendChild(item);
         return;
       }
-      for (const slot of slots) {
+      for (const slot of slotDetails) {
         const option = document.createElement('option');
-        option.value = slot;
-        option.textContent = slot;
+        option.value = slot.name;
+        option.textContent = slot.name;
         list.appendChild(option);
+
+        const item = document.createElement('li');
+        const title = document.createElement('strong');
+        title.textContent = slot.name;
+        const meta = document.createElement('div');
+        meta.className = 'muted';
+        const modified = slot.modified_unix ? new Date(slot.modified_unix * 1000).toLocaleString() : 'unknown time';
+        meta.textContent = `${slot.bytes} bytes | ${modified} | ${slot.path}`;
+        item.append(title, meta);
+        details.appendChild(item);
       }
-      if (slots.includes(selected)) list.value = selected;
+      if (slotDetails.some(slot => slot.name === selected)) list.value = selected;
     }
 
     function currentSlotName() {
@@ -1396,6 +1467,12 @@ mod tests {
         assert!(render_state_json(&state)
             .expect("state renders")
             .contains("\"save_slots\":[\"before_gate\"]"));
+        assert!(render_state_json(&state)
+            .expect("state renders")
+            .contains("\"save_slot_details\":["));
+        assert!(render_save_slot_details_json(&state)
+            .expect("slot details render")
+            .contains("\"bytes\":"));
         assert!(state.last_response.contains("Loaded save slot"));
 
         let _ = fs::remove_file(save_path);
