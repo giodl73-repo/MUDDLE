@@ -209,7 +209,7 @@ fn handle_connection(
     registrations: &[MuddleWindowHostRegistration],
     state: &mut MuddleWindowState,
 ) -> io::Result<()> {
-    let mut buffer = [0_u8; 8192];
+    let mut buffer = [0_u8; 65_536];
     let bytes_read = stream.read(&mut buffer)?;
     if bytes_read == 0 {
         return Ok(());
@@ -242,6 +242,12 @@ fn handle_connection(
             "200 OK",
             "application/json",
             &render_save_slots_json(state)?,
+        ),
+        ("GET", "/export-save") => write_response(
+            &mut stream,
+            "200 OK",
+            "text/plain",
+            &render_save_export(state),
         ),
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
@@ -310,6 +316,16 @@ fn handle_connection(
         ("POST", "/load-slot") => {
             let slot_name = request_body(&request).trim();
             load_state_from_slot(state, slot_name)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
+        ("POST", "/import-save") => {
+            let encoded_save = request_body(&request);
+            import_state_from_text(state, encoded_save)?;
             write_response(
                 &mut stream,
                 "200 OK",
@@ -440,6 +456,40 @@ fn load_state_from_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::R
         "Loaded save slot `{slot_name}` from {}.",
         slot_path.display()
     );
+    persist_state(state)?;
+    Ok(())
+}
+
+fn render_save_export(state: &MuddleWindowState) -> String {
+    state.session.save_for_host(state.host.as_ref()).encode()
+}
+
+fn import_state_from_text(state: &mut MuddleWindowState, encoded_save: &str) -> io::Result<()> {
+    let encoded_save = encoded_save.trim();
+    if encoded_save.is_empty() {
+        state.last_response = "Paste exported save text before importing.".to_string();
+        return Ok(());
+    }
+
+    let save = match MuddleSessionSave::decode(encoded_save) {
+        Ok(save) => save,
+        Err(error) => {
+            state.last_response = format!("Import failed: {error:?}");
+            return Ok(());
+        }
+    };
+    let mut host = (state.registration.create)();
+    let session = match MuddleSession::resume_for_host(host.as_mut(), &save) {
+        Ok(session) => session,
+        Err(error) => {
+            state.last_response = format!("Import failed: {error:?}");
+            return Ok(());
+        }
+    };
+
+    state.host = host;
+    state.session = session;
+    state.last_response = "Imported save text into the current host.".to_string();
     persist_state(state)?;
     Ok(())
 }
@@ -815,6 +865,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     pre { white-space: pre-wrap; line-height: 1.35; }
     input { width: 100%; box-sizing: border-box; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
     select { width: 100%; box-sizing: border-box; margin-top: .75rem; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
+    textarea { width: 100%; box-sizing: border-box; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
     button { margin-top: .75rem; padding: .65rem 1rem; background: #316dca; color: #fff; border: 0; border-radius: 8px; font: inherit; cursor: pointer; }
     button.secondary { background: #263241; color: #dbe6f2; }
     button.host-card { display: block; width: 100%; margin: .75rem 0; text-align: left; background: #1d2936; border: 1px solid #42566b; }
@@ -856,6 +907,10 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-slot" class="secondary" type="button">Save slot</button>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
+      <h2>Import / export</h2>
+      <textarea id="save-export" rows="8" placeholder="exported save text"></textarea>
+      <button id="export-save" class="secondary" type="button">Export save text</button>
+      <button id="import-save" class="secondary" type="button">Import save text</button>
       <h2>Panels</h2>
       <pre id="panels"></pre>
     </section>
@@ -1051,6 +1106,16 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     });
     document.getElementById('load-slot').addEventListener('click', async () => {
       const state = await fetch('/load-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
+    document.getElementById('export-save').addEventListener('click', async () => {
+      document.getElementById('save-export').value = await fetch('/export-save').then(r => r.text());
+      document.getElementById('save-export').focus();
+    });
+    document.getElementById('import-save').addEventListener('click', async () => {
+      const body = document.getElementById('save-export').value;
+      const state = await fetch('/import-save', { method: 'POST', body }).then(r => r.json());
       renderState(state);
       document.getElementById('command').focus();
     });
@@ -1309,6 +1374,39 @@ mod tests {
         assert!(normalize_save_slot_name("../outside").is_err());
         assert!(normalize_save_slot_name("two words").is_err());
         assert!(normalize_save_slot_name("").is_err());
+    }
+
+    #[test]
+    fn export_and_import_save_text_round_trip() {
+        let save_path = temp_file_path("import-export.muddle");
+        let mut state = MuddleWindowState::new(registration(), None, Some(save_path.clone()), None)
+            .expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Exported.");
+        let exported = render_save_export(&state);
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Unsaved.");
+
+        import_state_from_text(&mut state, &exported).expect("save imports");
+
+        assert_eq!(state.session.transcript.len(), 1);
+        assert!(state.last_response.contains("Imported save text"));
+        let saved = fs::read_to_string(&save_path).expect("active save updated");
+        assert_eq!(saved, exported);
+
+        let _ = fs::remove_file(save_path);
+    }
+
+    #[test]
+    fn invalid_save_import_is_user_visible() {
+        let mut state =
+            MuddleWindowState::new(registration(), None, None, None).expect("state starts");
+
+        import_state_from_text(&mut state, "not a save").expect("invalid import handled");
+
+        assert!(state.last_response.contains("Import failed"));
     }
 
     #[test]
