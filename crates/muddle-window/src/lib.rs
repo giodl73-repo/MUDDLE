@@ -233,12 +233,7 @@ fn handle_connection(
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
             if let Some(registration) = find_window_host(registrations, host_name) {
-                *state = MuddleWindowState::new(
-                    registration,
-                    None,
-                    state.save_path.clone(),
-                    state.transcript_path.clone(),
-                )?;
+                reset_state_for_registration(state, registration)?;
                 persist_state(state)?;
                 write_response(
                     &mut stream,
@@ -257,6 +252,19 @@ fn handle_connection(
                     ),
                 )
             }
+        }
+        ("POST", "/reset") => {
+            let registration = state.registration;
+            reset_state_for_registration(state, registration)?;
+            state.last_response =
+                format!("Restarted MUDDLE window host {}.", state.registration.name);
+            persist_state(state)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
         }
         ("POST", "/command") => {
             let command_text = request_body(&request).trim();
@@ -282,6 +290,19 @@ fn handle_connection(
         ("GET", "/favicon.ico") => write_response(&mut stream, "204 No Content", "text/plain", ""),
         _ => write_response(&mut stream, "404 Not Found", "text/plain", "not found"),
     }
+}
+
+fn reset_state_for_registration(
+    state: &mut MuddleWindowState,
+    registration: MuddleWindowHostRegistration,
+) -> io::Result<()> {
+    *state = MuddleWindowState::new(
+        registration,
+        None,
+        state.save_path.clone(),
+        state.transcript_path.clone(),
+    )?;
+    Ok(())
 }
 
 impl MuddleWindowState {
@@ -533,6 +554,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <p id="host" class="muted"></p>
       <p id="suggested"></p>
       <button id="change-host" class="secondary" type="button">Change host</button>
+      <button id="reset-host" class="secondary" type="button">Restart host</button>
       <p id="persistence" class="muted"></p>
       <h2>Panels</h2>
       <pre id="panels"></pre>
@@ -628,6 +650,11 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     document.getElementById('change-host').addEventListener('click', showChooser);
+    document.getElementById('reset-host').addEventListener('click', async () => {
+      const state = await fetch('/reset', { method: 'POST' }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
     document.getElementById('command-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!selectedHost) return;
@@ -739,6 +766,25 @@ mod tests {
         assert!(rendered.contains("\"commands\":["));
         assert!(rendered.contains("\"command\":\"look\""));
         assert!(rendered.contains("\"description\":\"Show the empty room.\""));
+    }
+
+    #[test]
+    fn reset_preserves_persistence_paths() {
+        let mut state = MuddleWindowState::new(
+            registration(),
+            None,
+            Some("save.muddle".into()),
+            Some("transcript.txt".into()),
+        )
+        .expect("state starts");
+        state.last_response = "changed".to_string();
+
+        reset_state_for_registration(&mut state, registration()).expect("state resets");
+
+        assert_eq!(state.session.transcript.len(), 0);
+        assert_eq!(state.last_response, "Window session ready.");
+        assert_eq!(state.save_path, Some("save.muddle".into()));
+        assert_eq!(state.transcript_path, Some("transcript.txt".into()));
     }
 
     #[test]

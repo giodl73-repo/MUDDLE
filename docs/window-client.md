@@ -40,6 +40,8 @@ renderer.
 Host-provided command hints render as clickable action buttons, so every
 compatible host can expose its next legal/common commands without custom window
 code.
+The **Restart host** button resets the currently selected host to a fresh
+session while preserving any `--save` and `--transcript` output paths.
 
 ## Boundary
 

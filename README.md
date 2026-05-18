@@ -92,7 +92,8 @@ and infrastructure already visible through MUDDLE. Product repos can reuse the
 same window runner, just as they reuse the CLI runner. The reusable window
 runner supports `--save`, `--load`, and `--transcript` for command-replay
 session persistence, and renders host-provided command hints as clickable
-action buttons.
+action buttons. The window also has an in-session **Restart host** control for
+replaying the current host while preserving configured save/transcript paths.
 
 ## Host extension model
 
