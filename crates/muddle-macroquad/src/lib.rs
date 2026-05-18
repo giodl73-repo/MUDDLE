@@ -1,4 +1,8 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
+};
 
 use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
@@ -25,6 +29,7 @@ pub struct MuddleMacroquadRunOptions {
 pub enum MuddleMacroquadMode {
     HostChooser,
     Playing,
+    SaveSlots,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +56,14 @@ pub struct MuddleMacroquadCommandControl {
     pub command: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadSaveSlotDetail {
+    pub name: String,
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub modified_unix: u64,
+}
+
 pub struct MuddleMacroquadState {
     registrations: Vec<MuddleClientHostRegistration>,
     registration: MuddleClientHostRegistration,
@@ -59,7 +72,9 @@ pub struct MuddleMacroquadState {
     mode: MuddleMacroquadMode,
     input: String,
     host_filter: String,
+    slot_filter: String,
     selected_host_index: usize,
+    selected_slot_index: usize,
     command_history: Vec<String>,
     command_history_cursor: Option<usize>,
     last_status: String,
@@ -145,7 +160,9 @@ impl MuddleMacroquadState {
             mode: MuddleMacroquadMode::Playing,
             input: String::new(),
             host_filter: String::new(),
+            slot_filter: String::new(),
             selected_host_index,
+            selected_slot_index: 0,
             command_history: Vec::new(),
             command_history_cursor: None,
             last_status,
@@ -165,6 +182,10 @@ impl MuddleMacroquadState {
 
     pub fn host_filter(&self) -> &str {
         &self.host_filter
+    }
+
+    pub fn slot_filter(&self) -> &str {
+        &self.slot_filter
     }
 
     pub fn active_host_name(&self) -> &str {
@@ -197,6 +218,10 @@ impl MuddleMacroquadState {
                 self.input.push(character);
                 self.command_history_cursor = None;
             }
+            MuddleMacroquadMode::SaveSlots => {
+                self.slot_filter.push(character);
+                self.keep_selected_slot_visible();
+            }
         }
     }
 
@@ -210,6 +235,10 @@ impl MuddleMacroquadState {
                 self.input.pop();
                 self.command_history_cursor = None;
             }
+            MuddleMacroquadMode::SaveSlots => {
+                self.slot_filter.pop();
+                self.keep_selected_slot_visible();
+            }
         }
     }
 
@@ -219,6 +248,14 @@ impl MuddleMacroquadState {
 
     pub fn select_previous_host(&mut self) {
         self.select_relative_host(-1);
+    }
+
+    pub fn select_next_slot(&mut self) {
+        self.select_relative_slot(1);
+    }
+
+    pub fn select_previous_slot(&mut self) {
+        self.select_relative_slot(-1);
     }
 
     pub fn choose_selected_host(&mut self) -> Result<(), String> {
@@ -234,6 +271,20 @@ impl MuddleMacroquadState {
         self.input.clear();
         self.command_history_cursor = None;
         self.last_status = "Choose a host with Up/Down and Enter. Type to filter.".to_string();
+    }
+
+    pub fn open_save_slots(&mut self) {
+        self.mode = MuddleMacroquadMode::SaveSlots;
+        self.input.clear();
+        self.command_history_cursor = None;
+        self.keep_selected_slot_visible();
+        self.last_status = "Save slots: type to filter or name a new slot.".to_string();
+    }
+
+    pub fn close_save_slots(&mut self) {
+        self.mode = MuddleMacroquadMode::Playing;
+        self.slot_filter.clear();
+        self.last_status = "Returned to play.".to_string();
     }
 
     pub fn restart_host(&mut self) -> Result<(), String> {
@@ -307,6 +358,91 @@ impl MuddleMacroquadState {
         Ok(())
     }
 
+    pub fn save_selected_slot(&mut self) -> io::Result<()> {
+        let Some((slot_name, slot_path)) = self.selected_or_typed_slot_path()? else {
+            return Ok(());
+        };
+
+        fs::write(
+            &slot_path,
+            self.session.save_for_host(self.host.as_ref()).encode(),
+        )?;
+        self.last_status = format!(
+            "Saved session slot `{slot_name}` to {}.",
+            slot_path.display()
+        );
+        self.keep_selected_slot_visible();
+        Ok(())
+    }
+
+    pub fn load_selected_slot(&mut self) -> io::Result<()> {
+        let Some((slot_name, slot_path)) = self.selected_or_typed_slot_path()? else {
+            return Ok(());
+        };
+        if !slot_path.exists() {
+            self.last_status = format!("No save slot found at {}.", slot_path.display());
+            return Ok(());
+        }
+
+        let encoded = fs::read_to_string(&slot_path)?;
+        let save = MuddleSessionSave::decode(&encoded)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}")))?;
+        let mut host = (self.registration.create)();
+        let session = MuddleSession::resume_for_host(host.as_mut(), &save)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}")))?;
+
+        self.host = host;
+        self.session = session;
+        self.input.clear();
+        self.command_history_cursor = None;
+        self.mode = MuddleMacroquadMode::Playing;
+        self.last_status = format!(
+            "Loaded save slot `{slot_name}` from {}.",
+            slot_path.display()
+        );
+        Ok(())
+    }
+
+    pub fn delete_selected_slot(&mut self) -> io::Result<()> {
+        let Some((slot_name, slot_path)) = self.selected_or_typed_slot_path()? else {
+            return Ok(());
+        };
+        if !slot_path.exists() {
+            self.last_status = format!("No save slot found at {}.", slot_path.display());
+            return Ok(());
+        }
+
+        fs::remove_file(&slot_path)?;
+        self.last_status = format!(
+            "Deleted save slot `{slot_name}` from {}.",
+            slot_path.display()
+        );
+        self.keep_selected_slot_visible();
+        Ok(())
+    }
+
+    pub fn export_selected_slot_text(&mut self) -> io::Result<Option<String>> {
+        let Some((slot_name, slot_path)) = self.selected_or_typed_slot_path()? else {
+            return Ok(None);
+        };
+        if !slot_path.exists() {
+            self.last_status = format!("No save slot found at {}.", slot_path.display());
+            return Ok(None);
+        }
+
+        let exported_save = fs::read_to_string(&slot_path)?;
+        self.last_status = format!(
+            "Exported save slot `{slot_name}` from {} ({} bytes).",
+            slot_path.display(),
+            exported_save.len()
+        );
+        Ok(Some(exported_save))
+    }
+
+    pub fn save_slot_details(&self) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
+        list_save_slot_details(&self.save_path)
+    }
+
     pub fn recall_previous_command(&mut self) {
         if self.command_history.is_empty() || self.mode != MuddleMacroquadMode::Playing {
             return;
@@ -363,12 +499,16 @@ impl MuddleMacroquadState {
         match self.mode {
             MuddleMacroquadMode::HostChooser => self.host_chooser_lines(),
             MuddleMacroquadMode::Playing => snapshot_display_lines(&self.snapshot(), &self.input),
+            MuddleMacroquadMode::SaveSlots => self.save_slot_lines(),
         }
     }
 
     pub fn play_layout(&self) -> Option<MuddleMacroquadPlayLayout> {
-        (self.mode == MuddleMacroquadMode::Playing)
-            .then(|| snapshot_play_layout(&self.snapshot(), &self.input))
+        (self.mode == MuddleMacroquadMode::Playing).then(|| {
+            let mut layout = snapshot_play_layout(&self.snapshot(), &self.input);
+            layout.panels.push(self.save_slot_region());
+            layout
+        })
     }
 
     pub fn snapshot(&self) -> MuddleClientSnapshot {
@@ -393,7 +533,9 @@ impl MuddleMacroquadState {
         self.session = session;
         self.mode = MuddleMacroquadMode::Playing;
         self.input.clear();
+        self.slot_filter.clear();
         self.selected_host_index = selected_host_index;
+        self.selected_slot_index = 0;
         self.command_history.clear();
         self.command_history_cursor = None;
         self.last_status = last_status;
@@ -451,6 +593,79 @@ impl MuddleMacroquadState {
         lines
     }
 
+    fn save_slot_lines(&self) -> Vec<String> {
+        let mut lines = vec![
+            "MUDDLE Macroquad Save Slots".to_string(),
+            "Type to filter or name a new slot. Up/Down selects. F6 saves. Enter/F10 loads. Delete removes. F11 exports. Esc returns.".to_string(),
+            format!(
+                "Base save: {}",
+                self.save_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "<not configured>".to_string())
+            ),
+            format!("Filter/new slot: {}", self.slot_filter),
+            String::new(),
+        ];
+
+        match self.filtered_save_slot_details() {
+            Ok(slots) if slots.is_empty() => {
+                if self.save_path.is_some() {
+                    lines.push(
+                        "No matching save slots. Type a valid slot name and press F6 to create it."
+                            .to_string(),
+                    );
+                } else {
+                    lines.push(
+                        "Start muddle-macroquad with --save before using save slots.".to_string(),
+                    );
+                }
+            }
+            Ok(slots) => {
+                let selected = self.selected_visible_slot_index(&slots);
+                for (index, slot) in slots.iter().enumerate() {
+                    let marker = if Some(index) == selected { ">" } else { " " };
+                    lines.push(format!(
+                        "{marker} {} - {} bytes - {}",
+                        slot.name,
+                        slot.bytes,
+                        slot.path.display()
+                    ));
+                }
+            }
+            Err(error) => lines.push(format!("Could not read save slots: {error}")),
+        }
+        lines
+    }
+
+    fn save_slot_region(&self) -> MuddleMacroquadTextRegion {
+        let mut lines = Vec::new();
+        lines.push("F8 save slots".to_string());
+        lines.push(format!(
+            "Base: {}",
+            self.save_path
+                .as_ref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<not configured>".to_string())
+        ));
+        match self.save_slot_details() {
+            Ok(slots) if slots.is_empty() => lines.push("Slots: none".to_string()),
+            Ok(slots) => {
+                lines.push(format!("Slots: {}", slots.len()));
+                for slot in slots.iter().take(3) {
+                    lines.push(format!("{} ({} bytes)", slot.name, slot.bytes));
+                }
+            }
+            Err(error) => lines.push(format!("Slots unavailable: {error}")),
+        }
+
+        MuddleMacroquadTextRegion {
+            id: "save-slots".to_string(),
+            label: "Save Slots".to_string(),
+            lines,
+        }
+    }
+
     fn select_relative_host(&mut self, delta: isize) {
         let visible = self.filtered_host_indices();
         if visible.is_empty() {
@@ -470,6 +685,15 @@ impl MuddleMacroquadState {
             if let Some(first) = self.filtered_host_indices().first() {
                 self.selected_host_index = *first;
             }
+        }
+    }
+
+    fn keep_selected_slot_visible(&mut self) {
+        match self.filtered_save_slot_details() {
+            Ok(slots) if self.selected_visible_slot_index(&slots).is_none() => {
+                self.selected_slot_index = 0;
+            }
+            _ => {}
         }
     }
 
@@ -503,6 +727,173 @@ impl MuddleMacroquadState {
             })
             .collect()
     }
+
+    fn select_relative_slot(&mut self, delta: isize) {
+        let Ok(slots) = self.filtered_save_slot_details() else {
+            return;
+        };
+        if slots.is_empty() {
+            return;
+        }
+
+        let current = self.selected_visible_slot_index(&slots).unwrap_or(0);
+        let next = (current as isize + delta).rem_euclid(slots.len() as isize) as usize;
+        self.selected_slot_index = next;
+    }
+
+    fn selected_visible_slot_index(
+        &self,
+        slots: &[MuddleMacroquadSaveSlotDetail],
+    ) -> Option<usize> {
+        if slots.is_empty() {
+            None
+        } else {
+            Some(self.selected_slot_index.min(slots.len() - 1))
+        }
+    }
+
+    fn filtered_save_slot_details(&self) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
+        let filter = self.slot_filter.trim().to_ascii_lowercase();
+        Ok(self
+            .save_slot_details()?
+            .into_iter()
+            .filter(|slot| {
+                filter.is_empty()
+                    || slot.name.to_ascii_lowercase().contains(&filter)
+                    || slot
+                        .path
+                        .to_string_lossy()
+                        .to_ascii_lowercase()
+                        .contains(&filter)
+            })
+            .collect())
+    }
+
+    fn selected_or_typed_slot_path(&mut self) -> io::Result<Option<(String, PathBuf)>> {
+        let Some(save_path) = &self.save_path else {
+            self.last_status =
+                "Start muddle-macroquad with --save before using save slots.".to_string();
+            return Ok(None);
+        };
+
+        let slot_name = match self.filtered_save_slot_details()? {
+            slots if !slots.is_empty() => {
+                let selected = self.selected_visible_slot_index(&slots).unwrap_or(0);
+                slots[selected].name.clone()
+            }
+            _ => {
+                if self.slot_filter.trim().is_empty() {
+                    "quick".to_string()
+                } else {
+                    self.slot_filter.trim().to_string()
+                }
+            }
+        };
+
+        match save_slot_path(save_path, &slot_name) {
+            Ok(slot_path) => Ok(Some((slot_name, slot_path))),
+            Err(message) => {
+                self.last_status = message;
+                Ok(None)
+            }
+        }
+    }
+}
+
+fn save_slot_path(save_path: &Path, slot_name: &str) -> Result<PathBuf, String> {
+    let slot_name = normalize_save_slot_name(slot_name)?;
+    let parent = save_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let stem = save_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("muddle-macroquad");
+    let extension = save_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_default();
+    Ok(parent.join(format!("{stem}.slot-{slot_name}{extension}")))
+}
+
+fn normalize_save_slot_name(slot_name: &str) -> Result<String, String> {
+    let slot_name = slot_name.trim();
+    if slot_name.is_empty() {
+        return Err("Enter a save slot name before using save slots.".to_string());
+    }
+    if slot_name.len() > 48 {
+        return Err("Save slot names must be 48 characters or fewer.".to_string());
+    }
+    if !slot_name
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+        return Err(
+            "Save slot names can only use letters, numbers, dash, and underscore.".to_string(),
+        );
+    }
+    Ok(slot_name.to_string())
+}
+
+fn list_save_slot_details(
+    save_path: &Option<PathBuf>,
+) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
+    let Some(save_path) = save_path else {
+        return Ok(Vec::new());
+    };
+    let parent = save_path.parent().unwrap_or_else(|| Path::new("."));
+    let stem = save_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("muddle-macroquad");
+    let extension = save_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_default();
+    let prefix = format!("{stem}.slot-");
+
+    let entries = match fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+    let mut slots = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let Some(file_name) = entry.file_name().to_str().map(str::to_string) else {
+            continue;
+        };
+        if !file_name.starts_with(&prefix) || !file_name.ends_with(&extension) {
+            continue;
+        }
+
+        let without_prefix = &file_name[prefix.len()..];
+        let slot_name = if extension.is_empty() {
+            without_prefix
+        } else {
+            &without_prefix[..without_prefix.len() - extension.len()]
+        };
+        if normalize_save_slot_name(slot_name).is_ok() {
+            let metadata = entry.metadata()?;
+            let modified_unix = metadata
+                .modified()
+                .ok()
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_secs())
+                .unwrap_or_default();
+            slots.push(MuddleMacroquadSaveSlotDetail {
+                name: slot_name.to_string(),
+                path: entry.path(),
+                bytes: metadata.len(),
+                modified_unix,
+            });
+        }
+    }
+    slots.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(slots)
 }
 
 pub fn default_macroquad_hosts() -> Vec<MuddleClientHostRegistration> {
@@ -647,7 +1038,7 @@ pub fn snapshot_display_lines(snapshot: &MuddleClientSnapshot, input: &str) -> V
     let mut lines = Vec::new();
     lines.push("MUDDLE Macroquad Runner".to_string());
     lines.push(
-        "Esc quits. F2 changes host. F5 restarts. F6 saves. F7 reloads. Up/Down recalls commands. Enter submits.".to_string(),
+        "Esc quits. F2 changes host. F5 restarts. F6 saves. F7 reloads. F8 opens save slots. Up/Down recalls commands. Enter submits.".to_string(),
     );
     lines.push(format!(
         "Host: {} - {}",
@@ -799,7 +1190,7 @@ fn control_header_lines(
         })
         .filter(|lines| !lines.is_empty())
         .unwrap_or_else(|| vec![format!("{} - {}", snapshot.host, snapshot.description)]);
-    lines.push("F2 host | F5 restart | F6 save | F7 reload | Esc quit".to_string());
+    lines.push("F2 host | F5 restart | F6 save | F7 reload | F8 slots | Esc quit".to_string());
     lines.push(format!("Input: {input}"));
     lines
 }
@@ -1079,5 +1470,60 @@ mod tests {
 
         let _ = fs::remove_file(save_path);
         let _ = fs::remove_file(transcript_path);
+    }
+
+    #[test]
+    fn macroquad_state_manages_save_slots() {
+        let unique = format!(
+            "muddle-macroquad-slot-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time is after epoch")
+                .as_nanos()
+        );
+        let save_path = std::env::temp_dir().join(format!("{unique}.muddle"));
+
+        let mut state = MuddleMacroquadState::with_host_and_paths(
+            default_macroquad_hosts(),
+            DEFAULT_HOST,
+            None,
+            Some(save_path.clone()),
+            None,
+        )
+        .expect("state starts");
+        state.open_save_slots();
+        for character in "camp".chars() {
+            state.push_char(character);
+        }
+        state.save_selected_slot().expect("slot saves");
+
+        let slots = state.save_slot_details().expect("slots list");
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].name, "camp");
+        assert!(slots[0].path.exists());
+
+        state.close_save_slots();
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        assert_eq!(state.turns(), 1);
+
+        state.open_save_slots();
+        state.load_selected_slot().expect("slot loads");
+        assert_eq!(state.mode(), MuddleMacroquadMode::Playing);
+        assert_eq!(state.turns(), 0);
+
+        state.open_save_slots();
+        let exported = state
+            .export_selected_slot_text()
+            .expect("slot exports")
+            .expect("slot exists");
+        assert!(exported.contains("MUDDLE_SESSION_V1"));
+        state.delete_selected_slot().expect("slot deletes");
+        assert!(state.save_slot_details().expect("slots list").is_empty());
+
+        let _ = fs::remove_file(save_path);
     }
 }

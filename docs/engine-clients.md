@@ -33,15 +33,21 @@ host name, category, description, or suggested commands; use Up/Down to move the
 selection and Enter to start. In play mode, Enter submits the typed command,
 Up/Down recalls prior commands, F2 returns to host selection, F5 restarts the
 current host, F6 writes configured `--save` and/or `--transcript` outputs, F7
-reloads the configured `--save` path, and Escape quits. `--load`, `--save`, and
-`--transcript` use the same command-replay save and transcript formats as
-`muddle-cli` and `muddle-window`.
+reloads the configured `--save` path, F8 opens a native save-slot screen, and
+Escape quits. `--load`, `--save`, and `--transcript` use the same command-replay
+save and transcript formats as `muddle-cli` and `muddle-window`.
+
+The save-slot screen uses the same sibling-file convention as `muddle-window`
+(`base.slot-name.ext`). Type to filter existing slots or name a new one, use
+Up/Down to select, F6 saves/overwrites the selected or typed slot, Enter/F10
+loads it, Delete removes it, F11 exports the selected command-replay save text,
+and Escape returns to play.
 
 The engine client renders the same snapshot fields as the browser's core play
 surface: active host metadata, room card, resources, inventory, objectives, map,
 recent log, command hints, visible status, turn count, and recent history. It
-does not own browser-only save-slot UX or product rules; those remain shared
-MUDDLE session contracts and host responsibilities.
+also renders native save-slot summary/status controls without owning product
+rules; those remain shared MUDDLE session contracts and host responsibilities.
 
 The Macroquad renderer now maps the snapshot's reusable controls into explicit
 game-client regions: header, room, panels, commands, status, and history. Host

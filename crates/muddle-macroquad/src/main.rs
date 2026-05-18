@@ -67,12 +67,14 @@ async fn main() {
             match state.mode() {
                 MuddleMacroquadMode::HostChooser => state.select_previous_host(),
                 MuddleMacroquadMode::Playing => state.recall_previous_command(),
+                MuddleMacroquadMode::SaveSlots => state.select_previous_slot(),
             }
         }
         if is_key_pressed(KeyCode::Down) {
             match state.mode() {
                 MuddleMacroquadMode::HostChooser => state.select_next_host(),
                 MuddleMacroquadMode::Playing => state.recall_next_command(),
+                MuddleMacroquadMode::SaveSlots => state.select_next_slot(),
             }
         }
         if is_key_pressed(KeyCode::Enter) {
@@ -83,6 +85,11 @@ async fn main() {
                     }
                 }
                 MuddleMacroquadMode::Playing => state.submit_input(),
+                MuddleMacroquadMode::SaveSlots => {
+                    if let Err(error) = state.load_selected_slot() {
+                        eprintln!("{error}");
+                    }
+                }
             }
         }
         if is_key_pressed(KeyCode::F2) {
@@ -94,12 +101,34 @@ async fn main() {
             }
         }
         if is_key_pressed(KeyCode::F6) {
-            if let Err(error) = state.save_now() {
+            let result = match state.mode() {
+                MuddleMacroquadMode::SaveSlots => state.save_selected_slot(),
+                _ => state.save_now(),
+            };
+            if let Err(error) = result {
                 eprintln!("{error}");
             }
         }
         if is_key_pressed(KeyCode::F7) {
             if let Err(error) = state.reload_save() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::F8) {
+            state.open_save_slots();
+        }
+        if is_key_pressed(KeyCode::F10) {
+            if let Err(error) = state.load_selected_slot() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::F11) {
+            if let Err(error) = state.export_selected_slot_text() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::Delete) {
+            if let Err(error) = state.delete_selected_slot() {
                 eprintln!("{error}");
             }
         }
@@ -116,12 +145,17 @@ async fn main() {
             }
         }
         if is_key_pressed(KeyCode::Escape) {
-            break;
+            match state.mode() {
+                MuddleMacroquadMode::SaveSlots => state.close_save_slots(),
+                _ => break,
+            }
         }
 
         command_buttons.clear();
         match state.mode() {
-            MuddleMacroquadMode::HostChooser => draw_lines(&state.display_lines(), 24.0, 28.0),
+            MuddleMacroquadMode::HostChooser | MuddleMacroquadMode::SaveSlots => {
+                draw_lines(&state.display_lines(), 24.0, 28.0)
+            }
             MuddleMacroquadMode::Playing => {
                 if let Some(layout) = state.play_layout() {
                     draw_play_layout(&layout, &mut command_buttons);

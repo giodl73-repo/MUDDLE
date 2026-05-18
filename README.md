@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-macroquad` | Lightweight Macroquad game-window client with a native host chooser, command input, command recall, restart/change-host controls, and shared snapshot rendering inside a Rust engine loop. |
+| `muddle-macroquad` | Lightweight Macroquad game-window client with a native host chooser, command input, command recall, restart/change-host controls, save-slot controls, and shared snapshot rendering inside a Rust engine loop. |
 | `muddle-window` | Reusable local browser-backed window runner, grouped/filterable host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
@@ -141,13 +141,16 @@ adapter spikes. It also accepts `--load`, `--save`, and `--transcript` for the
 same command-replay save and transcript formats used by the CLI/window clients.
 In play mode, Enter submits commands, Up/Down recalls command history, F2
 returns to host selection, F5 restarts the current host, F6 saves configured
-outputs, F7 reloads the configured save path, and Escape quits. Macroquad renders
-room cards, resource/inventory/objective/map panels, command hints, visible
-status, turn count, and recent history from the shared controls attached to the
-snapshot while leaving product rules in the mounted host. Its renderer now builds
-explicit header, room, panel, command, status, and history regions from those
-controls, and host command hints render as clickable native buttons rather than
-only flat text.
+outputs, F7 reloads the configured save path, F8 opens native save-slot
+browsing, and Escape quits. Macroquad renders room cards,
+resource/inventory/objective/map panels, command hints, visible status, turn
+count, recent history, and save-slot status from the shared controls attached to
+the snapshot while leaving product rules in the mounted host. Its renderer now
+builds explicit header, room, panel, command, status, and history regions from
+those controls, and host command hints render as clickable native buttons rather
+than only flat text. The save-slot screen uses the same sibling save-file
+convention as the browser client and supports filter/select, save, load, delete,
+and export actions from the native loop.
 
 ## Host extension model
 
