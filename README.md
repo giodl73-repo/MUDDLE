@@ -106,8 +106,9 @@ Ctrl+I imports save text. The window also has in-session **Save now**,
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured
-`--save` path and show their path, size, and modified time in the browser, while
-import/export uses the same portable command-replay save text.
+`--save` path and show their path, size, modified time, and a copy-path action
+in the browser, while import/export uses the same portable command-replay save
+text.
 
 ## Host extension model
 

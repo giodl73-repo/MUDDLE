@@ -964,6 +964,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     .empty-hosts { border: 1px dashed #42566b; border-radius: 8px; padding: 1rem; }
     .slot-details { list-style: none; padding-left: 0; }
     .slot-details li { background: #0f1318; border: 1px solid #263241; border-radius: 8px; margin: .5rem 0; padding: .5rem; }
+    .slot-copy { margin-top: .5rem; padding: .4rem .65rem; background: #1d3f5c; font-size: .85rem; }
     .window-status { display: none; background: #3b2630; border: 1px solid #7f4b5a; border-radius: 8px; color: #ffdce5; padding: .75rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
@@ -1180,10 +1181,24 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         meta.className = 'muted';
         const modified = slot.modified_unix ? new Date(slot.modified_unix * 1000).toLocaleString() : 'unknown time';
         meta.textContent = `${slot.bytes} bytes | ${modified} | ${slot.path}`;
-        item.append(title, meta);
+        const copyPath = document.createElement('button');
+        copyPath.className = 'slot-copy';
+        copyPath.type = 'button';
+        copyPath.textContent = 'Copy path';
+        copyPath.addEventListener('click', () => copySlotPath(slot));
+        item.append(title, meta, copyPath);
         details.appendChild(item);
       }
       if (slotDetails.some(slot => slot.name === selected)) list.value = selected;
+    }
+
+    async function copySlotPath(slot) {
+      try {
+        await navigator.clipboard.writeText(slot.path);
+        showWindowStatus(`Copied save-slot path for ${slot.name}.`);
+      } catch (error) {
+        showWindowStatus(`Copy failed: ${error.message}`);
+      }
     }
 
     function currentSlotName() {
@@ -1505,6 +1520,13 @@ mod tests {
         assert!(WINDOW_HTML.contains("r: loadSave"));
         assert!(WINDOW_HTML.contains("e: exportSaveText"));
         assert!(WINDOW_HTML.contains("i: importSaveText"));
+    }
+
+    #[test]
+    fn window_html_supports_save_slot_path_copy() {
+        assert!(WINDOW_HTML.contains("Copy path"));
+        assert!(WINDOW_HTML.contains("copySlotPath"));
+        assert!(WINDOW_HTML.contains("navigator.clipboard.writeText(slot.path)"));
     }
 
     #[test]

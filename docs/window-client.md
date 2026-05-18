@@ -57,7 +57,8 @@ paths immediately; Ctrl+S triggers the same action from the keyboard. The
 the local server; Ctrl+R triggers reload. The save-slot controls write, load,
 and delete named sibling save files derived from the configured `--save` path;
 slot names may use letters, numbers, dash, and underscore. The slot list shows
-each slot's path, byte size, and modified time. The import/export controls copy
+each slot's path, byte size, and modified time, and includes a **Copy path**
+button for copying the resolved slot file path. The import/export controls copy
 the current command-replay save text into a browser text area and can import
 compatible save text back into the currently mounted host; Ctrl+E exports and
 Ctrl+I imports.
