@@ -36,3 +36,14 @@ version = "0.1.0"
 dependencies = [
  "muddle-core",
 ]
+
+[[package]]
+name = "muddle-window"
+version = "0.1.0"
+dependencies = [
+ "muddle-amaze-spike",
+ "muddle-banish-spike",
+ "muddle-cli",
+ "muddle-core",
+ "muddle-mock-sim",
+]

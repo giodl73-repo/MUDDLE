@@ -21,6 +21,7 @@ escape room without becoming either product's engine.
 | BANISH mounting | A BANISH adapter exposes a playable game surface through `MuddleHost`. |
 | AMAZE mounting | An AMAZE adapter exposes escape rooms, clues, locks, and puzzle state through `MuddleHost`. |
 | Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
+| Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, and an ASCII map without custom renderer code. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
 | Product boundary | BANISH/AMAZE rules stay in their repos; MUDDLE owns only shared UX/session contracts. |
@@ -91,6 +92,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - save/resume regression coverage in MUDDLE, BANISH, and AMAZE
 - product-owned `banish-muddle` and `amaze-muddle` binaries
 - CLI fixture play loop with named host selection
+- local browser-backed `muddle-window` client with named host selection
 
 ## Plan review
 
@@ -113,7 +115,8 @@ Recommended next sequence:
    product-owned binaries such as `banish-muddle` and `amaze-muddle`.
 7. Expand panel contracts for richer maps after two
    host adapters prove the minimal status/map shape.
-8. Only then expand ASCII maps or richer window/TUI rendering beyond room cards.
+8. Use `muddle-window` as the first local window surface; keep richer native GUI
+   or TUI work behind the same host/session boundary.
 
 ## Loading and extension model
 
@@ -140,7 +143,8 @@ one in-process host adapter proves the contract.
 - No product-specific game rules in `muddle-core`.
 - No renderer beyond deterministic text/ASCII output until host contracts are
   proven.
-- No rich window/TUI renderer until the CLI and adapter seam are stable.
+- No rich native GUI/TUI renderer until the local browser-backed window proves
+  the host/session boundary.
 - No dynamic plugin loading until explicit in-process adapters have been proven.
 - No runtime dependency on RALLY until a real adapter proves the boundary.
 
@@ -148,4 +152,5 @@ one in-process host adapter proves the contract.
 
 ```powershell
 cargo test --quiet
+cargo run -p muddle-window -- --list-hosts
 ```
