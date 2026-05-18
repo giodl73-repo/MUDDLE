@@ -69,6 +69,7 @@ pub struct MuddleClientSnapshot {
     pub panels: MuddleClientPanels,
     pub commands: Vec<MuddleCommandHint>,
     pub history: Vec<MuddleClientHistoryEntry>,
+    pub visual_nodes: Vec<MuddleVisualNode>,
     pub controls: Vec<MuddleClientControl>,
 }
 
@@ -95,6 +96,36 @@ pub enum MuddleClientControlKind {
 pub struct MuddleClientImage {
     pub source: String,
     pub alt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleVisualNode {
+    pub id: String,
+    pub kind: MuddleVisualNodeKind,
+    pub label: String,
+    pub sprite: Option<MuddleSpriteRef>,
+    pub text: Option<String>,
+    pub layer: i32,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub children: Vec<MuddleVisualNode>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MuddleVisualNodeKind {
+    Sprite,
+    Text,
+    Group,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleSpriteRef {
+    pub source: String,
+    pub alt: String,
+    pub frame: Option<String>,
+    pub animation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -170,6 +201,9 @@ pub trait MuddleHost {
         Vec::new()
     }
     fn command_panel(&self, _current_room: &str) -> Vec<MuddleCommandHint> {
+        Vec::new()
+    }
+    fn visual_nodes(&self, _current_room: &str) -> Vec<MuddleVisualNode> {
         Vec::new()
     }
     fn export_checkpoint(&self) -> Option<String> {
@@ -306,6 +340,97 @@ impl MuddleClientControl {
             command: None,
             children,
         }
+    }
+}
+
+impl MuddleVisualNode {
+    pub fn sprite(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        source: impl Into<String>,
+        alt: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleVisualNodeKind::Sprite,
+            label: label.into(),
+            sprite: Some(MuddleSpriteRef {
+                source: source.into(),
+                alt: alt.into(),
+                frame: None,
+                animation: None,
+            }),
+            text: None,
+            layer: 0,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            children: Vec::new(),
+        }
+    }
+
+    pub fn text(id: impl Into<String>, label: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleVisualNodeKind::Text,
+            label: label.into(),
+            sprite: None,
+            text: Some(text.into()),
+            layer: 0,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            children: Vec::new(),
+        }
+    }
+
+    pub fn group(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        children: Vec<MuddleVisualNode>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleVisualNodeKind::Group,
+            label: label.into(),
+            sprite: None,
+            text: None,
+            layer: 0,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            children,
+        }
+    }
+
+    pub fn with_layer(mut self, layer: i32) -> Self {
+        self.layer = layer;
+        self
+    }
+
+    pub fn with_rect(mut self, x: i32, y: i32, width: i32, height: i32) -> Self {
+        self.x = x;
+        self.y = y;
+        self.width = width;
+        self.height = height;
+        self
+    }
+
+    pub fn with_frame(mut self, frame: impl Into<String>) -> Self {
+        if let Some(sprite) = &mut self.sprite {
+            sprite.frame = Some(frame.into());
+        }
+        self
+    }
+
+    pub fn with_animation(mut self, animation: impl Into<String>) -> Self {
+        if let Some(sprite) = &mut self.sprite {
+            sprite.animation = Some(animation.into());
+        }
+        self
     }
 }
 
@@ -464,6 +589,7 @@ impl MuddleSession {
             recent_log: self.recent_log_panel(3),
         };
         let commands = host.command_panel(&self.current_room);
+        let visual_nodes = host.visual_nodes(&self.current_room);
         let history = self
             .transcript
             .iter()
@@ -482,6 +608,7 @@ impl MuddleSession {
             &last_response,
             &panels,
             &commands,
+            &visual_nodes,
             &history,
         );
         MuddleClientSnapshot {
@@ -495,6 +622,7 @@ impl MuddleSession {
             panels,
             commands,
             history,
+            visual_nodes,
             controls,
         }
     }
@@ -622,6 +750,7 @@ fn build_client_controls(
     last_response: &str,
     panels: &MuddleClientPanels,
     commands: &[MuddleCommandHint],
+    visual_nodes: &[MuddleVisualNode],
     history: &[MuddleClientHistoryEntry],
 ) -> Vec<MuddleClientControl> {
     let mut controls = vec![
@@ -732,6 +861,17 @@ fn build_client_controls(
         ));
     }
 
+    if !visual_nodes.is_empty() {
+        controls.push(MuddleClientControl::group(
+            "visuals",
+            "Visuals",
+            visual_nodes
+                .iter()
+                .map(visual_node_control)
+                .collect::<Vec<_>>(),
+        ));
+    }
+
     controls.push(MuddleClientControl::text("status", "Status", last_response));
 
     if !history.is_empty() {
@@ -759,6 +899,32 @@ fn build_client_controls(
     }
 
     controls
+}
+
+fn visual_node_control(node: &MuddleVisualNode) -> MuddleClientControl {
+    match node.kind {
+        MuddleVisualNodeKind::Sprite => {
+            let sprite = node.sprite.as_ref();
+            let source = sprite
+                .map(|sprite| sprite.source.as_str())
+                .unwrap_or_default();
+            let alt = sprite
+                .map(|sprite| sprite.alt.as_str())
+                .unwrap_or(&node.label);
+            MuddleClientControl::image(&node.id, &node.label, source, alt)
+        }
+        MuddleVisualNodeKind::Text => {
+            MuddleClientControl::text(&node.id, &node.label, node.text.as_deref().unwrap_or(""))
+        }
+        MuddleVisualNodeKind::Group => MuddleClientControl::group(
+            &node.id,
+            &node.label,
+            node.children
+                .iter()
+                .map(visual_node_control)
+                .collect::<Vec<_>>(),
+        ),
+    }
 }
 
 fn control_id_fragment(value: &str) -> String {
@@ -923,6 +1089,83 @@ mod tests {
             .controls
             .iter()
             .any(|control| control.id == "status" && control.text.as_deref() == Some("Ready.")));
+    }
+
+    #[test]
+    fn client_snapshot_includes_reusable_visual_nodes() {
+        struct VisualHost {
+            base: MuddleStaticHost,
+        }
+
+        impl MuddleHost for VisualHost {
+            fn start_room(&self) -> &str {
+                self.base.start_room()
+            }
+
+            fn room(&self, room_id: &str) -> Option<&MuddleRoom> {
+                self.base.room(room_id)
+            }
+
+            fn visual_nodes(&self, _current_room: &str) -> Vec<MuddleVisualNode> {
+                vec![MuddleVisualNode::group(
+                    "scene",
+                    "Scene",
+                    vec![
+                        MuddleVisualNode::sprite(
+                            "player-token",
+                            "Player",
+                            "sprites/player.png",
+                            "Player token",
+                        )
+                        .with_layer(10)
+                        .with_rect(4, 2, 1, 1)
+                        .with_frame("idle")
+                        .with_animation("breathing"),
+                        MuddleVisualNode::text("room-label", "Room label", "Camp")
+                            .with_layer(20)
+                            .with_rect(0, 0, 8, 1),
+                    ],
+                )]
+            }
+
+            fn handle_command(
+                &mut self,
+                room_id: &str,
+                command: &MuddleCommand,
+            ) -> Result<MuddleCommandOutcome, MuddleError> {
+                self.base.handle_command(room_id, command)
+            }
+        }
+
+        let host = VisualHost {
+            base: MuddleStaticHost::try_new(
+                "camp",
+                vec![MuddleRoom {
+                    id: "camp".to_string(),
+                    title: "Camp".to_string(),
+                    description: "A visual contract test room.".to_string(),
+                    exits: Vec::new(),
+                }],
+            )
+            .expect("host builds"),
+        };
+        let session = MuddleSession::for_host(&host).expect("session starts");
+        let snapshot = session.client_snapshot(
+            &host,
+            MuddleClientInfo {
+                host: "visual-host".to_string(),
+                description: "Visual host".to_string(),
+                suggested_commands: "look".to_string(),
+            },
+            "Ready.",
+        );
+
+        assert_eq!(snapshot.visual_nodes[0].id, "scene");
+        assert_eq!(snapshot.visual_nodes[0].children[0].layer, 10);
+        assert!(snapshot
+            .controls
+            .iter()
+            .any(|control| control.id == "visuals"));
     }
 
     #[test]

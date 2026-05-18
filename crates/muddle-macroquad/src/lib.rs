@@ -1791,6 +1791,13 @@ pub fn snapshot_play_layout(
         })
         .filter(|panels| !panels.is_empty())
         .unwrap_or_else(|| fallback_panel_regions(snapshot));
+    let panels = if let Some(visuals) = find_control(controls, "visuals") {
+        let mut panels = panels;
+        panels.push(control_text_region(visuals));
+        panels
+    } else {
+        panels
+    };
 
     MuddleMacroquadPlayLayout {
         header: control_header_lines(controls, snapshot, input),

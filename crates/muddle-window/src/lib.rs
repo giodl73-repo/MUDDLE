@@ -11,7 +11,7 @@ use muddle_cli::{render_transcript, MuddleCliHostInfo};
 use muddle_core::{
     MuddleClientControl, MuddleClientControlKind, MuddleClientHostRegistration, MuddleClientInfo,
     MuddleClientPanels, MuddleClientSnapshot, MuddleCommand, MuddleHost, MuddleSession,
-    MuddleSessionSave,
+    MuddleSessionSave, MuddleVisualNode, MuddleVisualNodeKind,
 };
 
 pub type MuddleWindowHostRegistration = MuddleClientHostRegistration;
@@ -801,11 +801,12 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
     let commands = render_commands_json(&snapshot);
     let history = render_history_json(&snapshot);
     let controls = render_controls_json(&snapshot.controls);
+    let visuals = render_visuals_json(&snapshot.visual_nodes);
     let save_slots = render_save_slots_json(state)?;
     let save_slot_details = render_save_slot_details_json(state)?;
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history},\"controls\":{controls}}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history},\"controls\":{controls},\"visuals\":{visuals}}}",
         json_escape(&snapshot.host),
         json_escape(&snapshot.description),
         json_escape(&snapshot.suggested_commands),
@@ -949,12 +950,61 @@ fn render_control_json(control: &MuddleClientControl) -> String {
     )
 }
 
+fn render_visuals_json(nodes: &[MuddleVisualNode]) -> String {
+    let nodes = nodes
+        .iter()
+        .map(render_visual_node_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{nodes}]")
+}
+
+fn render_visual_node_json(node: &MuddleVisualNode) -> String {
+    let children = render_visuals_json(&node.children);
+    let (sprite_source, sprite_alt, sprite_frame, sprite_animation) = node
+        .sprite
+        .as_ref()
+        .map(|sprite| {
+            (
+                sprite.source.as_str(),
+                sprite.alt.as_str(),
+                sprite.frame.as_deref().unwrap_or_default(),
+                sprite.animation.as_deref().unwrap_or_default(),
+            )
+        })
+        .unwrap_or(("", "", "", ""));
+    format!(
+        "{{\"id\":\"{}\",\"kind\":\"{}\",\"label\":\"{}\",\"text\":\"{}\",\"sprite_source\":\"{}\",\"sprite_alt\":\"{}\",\"sprite_frame\":\"{}\",\"sprite_animation\":\"{}\",\"layer\":{},\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"children\":{children}}}",
+        json_escape(&node.id),
+        visual_kind_name(node.kind),
+        json_escape(&node.label),
+        json_escape(node.text.as_deref().unwrap_or_default()),
+        json_escape(sprite_source),
+        json_escape(sprite_alt),
+        json_escape(sprite_frame),
+        json_escape(sprite_animation),
+        node.layer,
+        node.x,
+        node.y,
+        node.width,
+        node.height
+    )
+}
+
 fn control_kind_name(kind: MuddleClientControlKind) -> &'static str {
     match kind {
         MuddleClientControlKind::Text => "text",
         MuddleClientControlKind::Image => "image",
         MuddleClientControlKind::Button => "button",
         MuddleClientControlKind::Group => "group",
+    }
+}
+
+fn visual_kind_name(kind: MuddleVisualNodeKind) -> &'static str {
+    match kind {
+        MuddleVisualNodeKind::Sprite => "sprite",
+        MuddleVisualNodeKind::Text => "text",
+        MuddleVisualNodeKind::Group => "group",
     }
 }
 
