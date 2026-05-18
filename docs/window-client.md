@@ -52,13 +52,15 @@ stays sticky near the bottom of the viewport so long histories do not push input
 out of reach. Failed local HTTP requests render a visible in-window status
 message so local runner failures are not silent.
 The **Save now** button writes the configured `--save` and/or `--transcript`
-paths immediately. The **Reload save** button reloads the configured `--save`
-path without restarting the local server. The save-slot controls write, load,
+paths immediately; Ctrl+S triggers the same action from the keyboard. The
+**Reload save** button reloads the configured `--save` path without restarting
+the local server; Ctrl+R triggers reload. The save-slot controls write, load,
 and delete named sibling save files derived from the configured `--save` path;
 slot names may use letters, numbers, dash, and underscore. The slot list shows
 each slot's path, byte size, and modified time. The import/export controls copy
 the current command-replay save text into a browser text area and can import
-compatible save text back into the currently mounted host.
+compatible save text back into the currently mounted host; Ctrl+E exports and
+Ctrl+I imports.
 The **Restart host** button resets the currently selected host to a fresh
 session while preserving any `--save` and `--transcript` output paths.
 

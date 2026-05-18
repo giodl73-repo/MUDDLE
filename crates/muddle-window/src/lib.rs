@@ -997,6 +997,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-now" class="secondary" type="button">Save now</button>
       <button id="load-save" class="secondary" type="button">Reload save</button>
       <p id="persistence" class="muted"></p>
+      <p class="muted">Shortcuts: Ctrl+S save, Ctrl+R reload, Ctrl+E export, Ctrl+I import.</p>
       <h2>Save slots</h2>
       <input id="save-slot-name" autocomplete="off" placeholder="slot name, e.g. before-boss">
       <button id="save-slot" class="secondary" type="button">Save slot</button>
@@ -1259,48 +1260,80 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       input.setSelectionRange(input.value.length, input.value.length);
     }
 
-    document.getElementById('change-host').addEventListener('click', showChooser);
-    document.getElementById('host-filter').addEventListener('input', renderHosts);
-    document.getElementById('reset-host').addEventListener('click', async () => {
+    async function resetHost() {
       const state = await requestJson('/reset', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('save-now').addEventListener('click', async () => {
+    }
+
+    async function saveNow() {
       const state = await requestJson('/save', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('load-save').addEventListener('click', async () => {
+    }
+
+    async function loadSave() {
       const state = await requestJson('/load-save', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('save-slot').addEventListener('click', async () => {
+    }
+
+    async function saveSlot() {
       const state = await requestJson('/save-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('load-slot').addEventListener('click', async () => {
+    }
+
+    async function loadSlot() {
       const state = await requestJson('/load-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('delete-slot').addEventListener('click', async () => {
+    }
+
+    async function deleteSlot() {
       const state = await requestJson('/delete-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
-    });
-    document.getElementById('export-save').addEventListener('click', async () => {
+    }
+
+    async function exportSaveText() {
       document.getElementById('save-export').value = await requestText('/export-save');
       document.getElementById('save-export').focus();
-    });
-    document.getElementById('import-save').addEventListener('click', async () => {
+    }
+
+    async function importSaveText() {
       const body = document.getElementById('save-export').value;
       const state = await requestJson('/import-save', { method: 'POST', body });
       renderState(state);
       document.getElementById('command').focus();
-    });
+    }
+
+    function handleWindowShortcut(event) {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (!selectedHost) return;
+      const key = event.key.toLowerCase();
+      const shortcuts = {
+        s: saveNow,
+        r: loadSave,
+        e: exportSaveText,
+        i: importSaveText,
+      };
+      const action = shortcuts[key];
+      if (!action) return;
+      event.preventDefault();
+      action();
+    }
+
+    document.getElementById('change-host').addEventListener('click', showChooser);
+    document.getElementById('host-filter').addEventListener('input', renderHosts);
+    document.getElementById('reset-host').addEventListener('click', resetHost);
+    document.getElementById('save-now').addEventListener('click', saveNow);
+    document.getElementById('load-save').addEventListener('click', loadSave);
+    document.getElementById('save-slot').addEventListener('click', saveSlot);
+    document.getElementById('load-slot').addEventListener('click', loadSlot);
+    document.getElementById('delete-slot').addEventListener('click', deleteSlot);
+    document.getElementById('export-save').addEventListener('click', exportSaveText);
+    document.getElementById('import-save').addEventListener('click', importSaveText);
     document.getElementById('command-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!selectedHost) return;
@@ -1311,6 +1344,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       await sendCommand(command);
     });
     document.getElementById('command').addEventListener('keydown', recallCommand);
+    document.addEventListener('keydown', handleWindowShortcut);
     loadHosts();
   </script>
 </body>
@@ -1461,6 +1495,16 @@ mod tests {
         assert!(WINDOW_HTML.contains("chooser-status"));
         assert!(WINDOW_HTML.contains("Request failed:"));
         assert!(WINDOW_HTML.contains("requestJson"));
+    }
+
+    #[test]
+    fn window_html_supports_persistence_shortcuts() {
+        assert!(WINDOW_HTML.contains("Ctrl+S save"));
+        assert!(WINDOW_HTML.contains("handleWindowShortcut"));
+        assert!(WINDOW_HTML.contains("s: saveNow"));
+        assert!(WINDOW_HTML.contains("r: loadSave"));
+        assert!(WINDOW_HTML.contains("e: exportSaveText"));
+        assert!(WINDOW_HTML.contains("i: importSaveText"));
     }
 
     #[test]
