@@ -389,9 +389,10 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         .room(&state.session.current_room)
         .map(|room| room.ascii_card())
         .unwrap_or_else(|| format!("Room missing: {}", state.session.current_room));
+    let commands = render_commands_json(state);
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\"}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"commands\":{commands}}}",
         json_escape(state.registration.name),
         json_escape(state.registration.description),
         json_escape(state.registration.suggested_commands),
@@ -403,6 +404,23 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         json_escape(&display_path(&state.save_path)),
         json_escape(&display_path(&state.transcript_path))
     ))
+}
+
+fn render_commands_json(state: &MuddleWindowState) -> String {
+    let commands = state
+        .host
+        .command_panel(&state.session.current_room)
+        .iter()
+        .map(|hint| {
+            format!(
+                "{{\"command\":\"{}\",\"description\":\"{}\"}}",
+                json_escape(&hint.command),
+                json_escape(&hint.description)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{commands}]")
 }
 
 fn display_path(path: &Option<PathBuf>) -> String {
@@ -493,6 +511,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     button.secondary { background: #263241; color: #dbe6f2; }
     button.host-card { display: block; width: 100%; margin: .75rem 0; text-align: left; background: #1d2936; border: 1px solid #42566b; }
     button.host-card strong { display: block; color: #fff; margin-bottom: .25rem; }
+    button.command-button { margin: .35rem .35rem 0 0; background: #244b32; }
+    button.command-button span { display: block; color: #c4d2c8; font-size: .8rem; margin-top: .2rem; }
     #chooser { max-width: 56rem; margin: 0 auto; padding: 1rem; }
     #client { display: none; }
     .muted { color: #9aa7b2; }
@@ -520,6 +540,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     <section>
       <h2 id="room"></h2>
       <pre id="card"></pre>
+      <h2>Actions</h2>
+      <div id="command-buttons"></div>
       <h2>Last response</h2>
       <pre id="response" class="response"></pre>
       <form id="command-form">
@@ -575,10 +597,34 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('panels').textContent = state.panels || '(no panels)';
       document.getElementById('card').textContent = state.room_card;
       document.getElementById('response').textContent = state.last_response;
+      renderCommandButtons(state.commands || []);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
       document.getElementById('persistence').textContent = persistence.join(' | ');
+    }
+
+    function renderCommandButtons(commands) {
+      const container = document.getElementById('command-buttons');
+      container.innerHTML = '';
+      for (const hint of commands) {
+        const button = document.createElement('button');
+        button.className = 'command-button';
+        button.type = 'button';
+        const command = document.createElement('strong');
+        command.textContent = hint.command;
+        const description = document.createElement('span');
+        description.textContent = hint.description;
+        button.append(command, description);
+        button.addEventListener('click', () => sendCommand(hint.command));
+        container.appendChild(button);
+      }
+    }
+
+    async function sendCommand(command) {
+      const state = await fetch('/command', { method: 'POST', body: command }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
     }
 
     document.getElementById('change-host').addEventListener('click', showChooser);
@@ -589,8 +635,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       const command = input.value.trim();
       if (!command) return;
       input.value = '';
-      const state = await fetch('/command', { method: 'POST', body: command }).then(r => r.json());
-      renderState(state);
+      await sendCommand(command);
     });
     loadHosts();
   </script>
@@ -601,7 +646,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use muddle_core::{MuddleCommandOutcome, MuddleError, MuddleRoom};
+    use muddle_core::{MuddleCommandHint, MuddleCommandOutcome, MuddleError, MuddleRoom};
 
     struct EmptyHost;
 
@@ -626,6 +671,13 @@ mod tests {
                 room_id: room_id.to_string(),
                 command: command.clone(),
             })
+        }
+
+        fn command_panel(&self, _current_room: &str) -> Vec<MuddleCommandHint> {
+            vec![MuddleCommandHint {
+                command: "look".to_string(),
+                description: "Show the empty room.".to_string(),
+            }]
         }
     }
 
@@ -678,6 +730,15 @@ mod tests {
     fn renders_registered_hosts_json() {
         let hosts = render_hosts_json(&[registration()]);
         assert!(hosts.contains("\"name\":\"empty\""));
+    }
+
+    #[test]
+    fn renders_command_hints_in_state_json() {
+        let state = MuddleWindowState::new(registration(), None, None, None).expect("state starts");
+        let rendered = render_state_json(&state).expect("state renders");
+        assert!(rendered.contains("\"commands\":["));
+        assert!(rendered.contains("\"command\":\"look\""));
+        assert!(rendered.contains("\"description\":\"Show the empty room.\""));
     }
 
     #[test]

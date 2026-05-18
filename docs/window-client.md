@@ -37,6 +37,9 @@ registrations. This mirrors the existing reusable `muddle-cli` runner shape.
 The runner accepts `--save`, `--load`, and `--transcript`; saves use the same
 command-replay format as the CLI and transcripts use the same transcript
 renderer.
+Host-provided command hints render as clickable action buttons, so every
+compatible host can expose its next legal/common commands without custom window
+code.
 
 ## Boundary
 
