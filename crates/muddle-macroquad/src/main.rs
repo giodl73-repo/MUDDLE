@@ -43,12 +43,14 @@ async fn main() {
             options.load_path,
             options.save_path,
             options.transcript_path,
+            options.import_path,
         ),
         None => MuddleMacroquadState::with_chooser_and_paths(
             registrations,
             options.load_path,
             options.save_path,
             options.transcript_path,
+            options.import_path,
         ),
     }
     .expect("MUDDLE macroquad state starts");
@@ -127,6 +129,11 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::F11) {
             if let Err(error) = state.export_selected_slot_text() {
+                eprintln!("{error}");
+            }
+        }
+        if is_key_pressed(KeyCode::F12) {
+            if let Err(error) = state.import_save_text_now() {
                 eprintln!("{error}");
             }
         }

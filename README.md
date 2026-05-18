@@ -82,7 +82,7 @@ cargo run -p muddle-macroquad -- --list-hosts
 cargo run -p muddle-macroquad
 cargo run -p muddle-macroquad -- --host mock-labyrinth
 cargo run -p muddle-macroquad -- --host banish-pilgrim-loss
-cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt
+cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt --import portable.muddle
 ```
 
 The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
@@ -142,7 +142,8 @@ same command-replay save and transcript formats used by the CLI/window clients.
 In play mode, Enter submits commands, Up/Down recalls command history, F2
 returns to host selection, F5 restarts the current host, F6 saves configured
 outputs, F7 reloads the configured save path, F8 opens native save-slot
-browsing, and Escape quits. Macroquad renders room cards,
+browsing, F12 imports command-replay save text from the configured `--import`
+path, and Escape quits. Macroquad renders room cards,
 resource/inventory/objective/map panels, command hints, visible status, turn
 count, recent history, and save-slot status from the shared controls attached to
 the snapshot while leaving product rules in the mounted host. Its renderer now
