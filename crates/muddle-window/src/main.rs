@@ -14,6 +14,7 @@ use muddle_mock_sim::MuddleMockSimHost;
 const DEFAULT_HOST: &str = "mock-labyrinth";
 const DEFAULT_ADDR: &str = "127.0.0.1:4777";
 
+#[derive(Debug, Clone, Copy)]
 struct WindowHostRegistration {
     name: &'static str,
     description: &'static str,
@@ -116,12 +117,40 @@ fn handle_connection(mut stream: TcpStream, state: &mut WindowState) -> io::Resu
     let (method, path) = request_line(&request);
     match (method, path) {
         ("GET", "/") => write_response(&mut stream, "200 OK", "text/html", CLIENT_HTML),
+        ("GET", "/hosts") => write_response(
+            &mut stream,
+            "200 OK",
+            "application/json",
+            &render_hosts_json(),
+        ),
         ("GET", "/state") => write_response(
             &mut stream,
             "200 OK",
             "application/json",
             &render_state_json(state)?,
         ),
+        ("POST", "/select-host") => {
+            let host_name = request_body(&request).trim();
+            if let Some(registration) = find_host(host_name) {
+                *state = WindowState::new(registration)?;
+                write_response(
+                    &mut stream,
+                    "200 OK",
+                    "application/json",
+                    &render_state_json(state)?,
+                )
+            } else {
+                write_response(
+                    &mut stream,
+                    "400 Bad Request",
+                    "application/json",
+                    &format!(
+                        "{{\"error\":\"Unknown MUDDLE host `{}`.\"}}",
+                        json_escape(host_name)
+                    ),
+                )
+            }
+        }
         ("POST", "/command") => {
             let command_text = request_body(&request).trim();
             if command_text.is_empty() {
@@ -145,6 +174,22 @@ fn handle_connection(mut stream: TcpStream, state: &mut WindowState) -> io::Resu
         ("GET", "/favicon.ico") => write_response(&mut stream, "204 No Content", "text/plain", ""),
         _ => write_response(&mut stream, "404 Not Found", "text/plain", "not found"),
     }
+}
+
+fn render_hosts_json() -> String {
+    let hosts = host_registry()
+        .iter()
+        .map(|registration| {
+            format!(
+                "{{\"name\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\"}}",
+                json_escape(registration.name),
+                json_escape(registration.description),
+                json_escape(registration.suggested_commands)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{hosts}]")
 }
 
 fn render_state_json(state: &WindowState) -> io::Result<String> {
@@ -343,16 +388,29 @@ const CLIENT_HTML: &str = r#"<!doctype html>
     pre { white-space: pre-wrap; line-height: 1.35; }
     input { width: 100%; box-sizing: border-box; padding: .75rem; background: #0f1318; color: #fff; border: 1px solid #415061; border-radius: 8px; font: inherit; }
     button { margin-top: .75rem; padding: .65rem 1rem; background: #316dca; color: #fff; border: 0; border-radius: 8px; font: inherit; cursor: pointer; }
+    button.secondary { background: #263241; color: #dbe6f2; }
+    button.host-card { display: block; width: 100%; margin: .75rem 0; text-align: left; background: #1d2936; border: 1px solid #42566b; }
+    button.host-card strong { display: block; color: #fff; margin-bottom: .25rem; }
+    #chooser { max-width: 56rem; margin: 0 auto; padding: 1rem; }
+    #client { display: none; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
   </style>
 </head>
 <body>
-  <main>
+  <main id="chooser">
+    <section>
+      <h1>Choose a MUDDLE host</h1>
+      <p class="muted">Pick the game surface to mount in this local window. You can switch later, which starts a fresh session for that host.</p>
+      <div id="host-list"></div>
+    </section>
+  </main>
+  <main id="client">
     <section>
       <h1>MUDDLE Window</h1>
       <p id="host" class="muted"></p>
       <p id="suggested"></p>
+      <button id="change-host" class="secondary" type="button">Change host</button>
       <h2>Panels</h2>
       <pre id="panels"></pre>
     </section>
@@ -368,8 +426,45 @@ const CLIENT_HTML: &str = r#"<!doctype html>
     </section>
   </main>
   <script>
-    async function refresh() {
-      const state = await fetch('/state').then(r => r.json());
+    let selectedHost = null;
+
+    async function loadHosts() {
+      const hosts = await fetch('/hosts').then(r => r.json());
+      const list = document.getElementById('host-list');
+      list.innerHTML = '';
+      for (const host of hosts) {
+        const button = document.createElement('button');
+        button.className = 'host-card';
+        button.type = 'button';
+        const name = document.createElement('strong');
+        name.textContent = host.name;
+        const description = document.createElement('span');
+        description.textContent = host.description;
+        const suggested = document.createElement('span');
+        suggested.className = 'muted';
+        suggested.textContent = `Try: ${host.suggested}`;
+        button.append(name, description, document.createElement('br'), suggested);
+        button.addEventListener('click', () => selectHost(host.name));
+        list.appendChild(button);
+      }
+    }
+
+    async function selectHost(hostName) {
+      selectedHost = hostName;
+      const state = await fetch('/select-host', { method: 'POST', body: hostName }).then(r => r.json());
+      document.getElementById('chooser').style.display = 'none';
+      document.getElementById('client').style.display = 'grid';
+      renderState(state);
+      document.getElementById('command').focus();
+    }
+
+    function showChooser() {
+      selectedHost = null;
+      document.getElementById('client').style.display = 'none';
+      document.getElementById('chooser').style.display = 'block';
+    }
+
+    function renderState(state) {
       document.title = `MUDDLE - ${state.host}`;
       document.getElementById('host').textContent = `${state.host}: ${state.description}`;
       document.getElementById('suggested').textContent = `Try: ${state.suggested}`;
@@ -378,19 +473,19 @@ const CLIENT_HTML: &str = r#"<!doctype html>
       document.getElementById('card').textContent = state.room_card;
       document.getElementById('response').textContent = state.last_response;
     }
+
+    document.getElementById('change-host').addEventListener('click', showChooser);
     document.getElementById('command-form').addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (!selectedHost) return;
       const input = document.getElementById('command');
       const command = input.value.trim();
       if (!command) return;
       input.value = '';
       const state = await fetch('/command', { method: 'POST', body: command }).then(r => r.json());
-      document.getElementById('room').textContent = `${state.room} (${state.turns} turns)`;
-      document.getElementById('panels').textContent = state.panels || '(no panels)';
-      document.getElementById('card').textContent = state.room_card;
-      document.getElementById('response').textContent = state.last_response;
+      renderState(state);
     });
-    refresh();
+    loadHosts();
   </script>
 </body>
 </html>
@@ -441,6 +536,14 @@ mod tests {
     #[test]
     fn escapes_json_strings() {
         assert_eq!(json_escape("a\"b\\c\n"), "a\\\"b\\\\c\\n");
+    }
+
+    #[test]
+    fn renders_host_picker_json() {
+        let hosts = render_hosts_json();
+        assert!(hosts.contains("\"name\":\"mock-labyrinth\""));
+        assert!(hosts.contains("\"name\":\"banish-pilgrim-loss\""));
+        assert!(hosts.contains("\"name\":\"amaze-silverstream\""));
     }
 
     #[test]

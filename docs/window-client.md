@@ -22,6 +22,10 @@ If `--open` is omitted, open the printed local URL manually.
 cargo run -p muddle-window -- --addr 127.0.0.1:4777
 ```
 
+The front screen lists every mounted host. Choosing a host starts a fresh local
+session for that host; the in-window **Change host** button returns to the
+chooser.
+
 ## Boundary
 
 MUDDLE owns the local renderer, command entry, room panel display, transcript
@@ -33,5 +37,6 @@ their content, rules, maps, puzzles, simulations, and win conditions.
 ```powershell
 cargo test --quiet
 cargo run -p muddle-window -- --list-hosts
+cargo run -p muddle-window -- --addr 127.0.0.1:4777
 git grep -n "muddle-window" -- README.md PRODUCT_PLAN.md docs\window-client.md Cargo.toml
 ```
