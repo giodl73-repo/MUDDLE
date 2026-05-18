@@ -264,6 +264,17 @@ fn handle_connection(
             "text/plain",
             &render_save_export(state),
         ),
+        ("POST", "/export-slot") => {
+            let slot_name = request_body(&request).trim();
+            match export_save_slot_text(state, slot_name)? {
+                Ok(exported_save) => {
+                    write_response(&mut stream, "200 OK", "text/plain", &exported_save)
+                }
+                Err(message) => {
+                    write_response(&mut stream, "400 Bad Request", "text/plain", &message)
+                }
+            }
+        }
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
             if let Some(registration) = find_window_host(registrations, host_name) {
@@ -506,6 +517,28 @@ fn delete_save_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::Resul
 
 fn render_save_export(state: &MuddleWindowState) -> String {
     state.session.save_for_host(state.host.as_ref()).encode()
+}
+
+fn export_save_slot_text(
+    state: &mut MuddleWindowState,
+    slot_name: &str,
+) -> io::Result<Result<String, String>> {
+    let Some((slot_name, slot_path)) =
+        save_slot_path(&state.save_path, slot_name, &mut state.last_response)
+    else {
+        return Ok(Err(state.last_response.clone()));
+    };
+    if !slot_path.exists() {
+        state.last_response = format!("No save slot found at {}.", slot_path.display());
+        return Ok(Err(state.last_response.clone()));
+    }
+
+    let exported_save = fs::read_to_string(&slot_path)?;
+    state.last_response = format!(
+        "Exported save slot `{slot_name}` from {}.",
+        slot_path.display()
+    );
+    Ok(Ok(exported_save))
 }
 
 fn import_state_from_text(state: &mut MuddleWindowState, encoded_save: &str) -> io::Result<()> {
@@ -1004,6 +1037,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-slot" class="secondary" type="button">Save slot</button>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
+      <button id="export-slot" class="secondary" type="button">Export slot text</button>
       <button id="delete-slot" class="secondary" type="button">Delete slot</button>
       <ul id="save-slot-details" class="slot-details"></ul>
       <h2>Import / export</h2>
@@ -1311,6 +1345,14 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('command').focus();
     }
 
+    async function exportSlotText() {
+      const slotName = currentSlotName();
+      const exported = await requestText('/export-slot', { method: 'POST', body: slotName });
+      document.getElementById('save-export').value = exported;
+      showWindowStatus(`Exported save text for slot ${slotName}.`);
+      document.getElementById('save-export').focus();
+    }
+
     async function exportSaveText() {
       document.getElementById('save-export').value = await requestText('/export-save');
       document.getElementById('save-export').focus();
@@ -1346,6 +1388,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('load-save').addEventListener('click', loadSave);
     document.getElementById('save-slot').addEventListener('click', saveSlot);
     document.getElementById('load-slot').addEventListener('click', loadSlot);
+    document.getElementById('export-slot').addEventListener('click', exportSlotText);
     document.getElementById('delete-slot').addEventListener('click', deleteSlot);
     document.getElementById('export-save').addEventListener('click', exportSaveText);
     document.getElementById('import-save').addEventListener('click', importSaveText);
@@ -1530,6 +1573,13 @@ mod tests {
     }
 
     #[test]
+    fn window_html_supports_selected_slot_export() {
+        assert!(WINDOW_HTML.contains("Export slot text"));
+        assert!(WINDOW_HTML.contains("exportSlotText"));
+        assert!(WINDOW_HTML.contains("/export-slot"));
+    }
+
+    #[test]
     fn reset_preserves_persistence_paths() {
         let mut state = MuddleWindowState::new(
             registration(),
@@ -1671,6 +1721,32 @@ mod tests {
         assert!(state.last_response.contains("Deleted save slot"));
 
         let _ = fs::remove_file(save_path);
+    }
+
+    #[test]
+    fn export_save_slot_text_reads_slot_without_loading_it() {
+        let save_path = temp_file_path("export-slot.muddle");
+        let slot_path = temp_file_path("export-slot.slot-before_gate.muddle");
+        let mut state = MuddleWindowState::new(registration(), None, Some(save_path.clone()), None)
+            .expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Slot saved.");
+        save_state_to_slot(&mut state, "before_gate").expect("slot saves");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Still active.");
+
+        let exported = export_save_slot_text(&mut state, "before_gate")
+            .expect("slot exports")
+            .expect("slot text available");
+
+        assert!(exported.contains("command=look"));
+        assert_eq!(state.session.transcript.len(), 2);
+        assert!(state.last_response.contains("Exported save slot"));
+
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(slot_path);
     }
 
     #[test]

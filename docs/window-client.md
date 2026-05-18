@@ -61,7 +61,8 @@ each slot's path, byte size, and modified time, and includes a **Copy path**
 button for copying the resolved slot file path. The import/export controls copy
 the current command-replay save text into a browser text area and can import
 compatible save text back into the currently mounted host; Ctrl+E exports and
-Ctrl+I imports.
+Ctrl+I imports. **Export slot text** copies the selected slot's command-replay
+save text into the same browser text area without loading that slot.
 The **Restart host** button resets the currently selected host to a fresh
 session while preserving any `--save` and `--transcript` output paths.
 

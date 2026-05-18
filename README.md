@@ -107,8 +107,9 @@ slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured
 `--save` path and show their path, size, modified time, and a copy-path action
-in the browser, while import/export uses the same portable command-replay save
-text.
+in the browser. A selected slot can also export its save text into the browser
+text area without loading the slot, while import/export uses the same portable
+command-replay save text.
 
 ## Host extension model
 
