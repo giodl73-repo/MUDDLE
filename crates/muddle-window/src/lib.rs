@@ -1267,6 +1267,13 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       return input || document.getElementById('save-slot-list').value;
     }
 
+    function persistenceTargetSummary(state) {
+      const targets = [];
+      if (state.save_path) targets.push(`save ${state.save_path}`);
+      if (state.transcript_path) targets.push(`transcript ${state.transcript_path}`);
+      return targets.length ? targets.join(' and ') : 'configured persistence outputs';
+    }
+
     function renderCommandButtons(commands) {
       const container = document.getElementById('command-buttons');
       container.innerHTML = '';
@@ -1345,30 +1352,38 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     async function saveNow() {
       const state = await requestJson('/save', { method: 'POST' });
       renderState(state);
+      showWindowStatus(`Saved ${persistenceTargetSummary(state)}.`);
       document.getElementById('command').focus();
     }
 
     async function loadSave() {
       const state = await requestJson('/load-save', { method: 'POST' });
       renderState(state);
+      showWindowStatus(`Reloaded save ${state.save_path || 'from configured save path'}.`);
       document.getElementById('command').focus();
     }
 
     async function saveSlot() {
-      const state = await requestJson('/save-slot', { method: 'POST', body: currentSlotName() });
+      const slotName = currentSlotName();
+      const state = await requestJson('/save-slot', { method: 'POST', body: slotName });
       renderState(state);
+      showWindowStatus(`Saved slot ${slotName}.`);
       document.getElementById('command').focus();
     }
 
     async function loadSlot() {
-      const state = await requestJson('/load-slot', { method: 'POST', body: currentSlotName() });
+      const slotName = currentSlotName();
+      const state = await requestJson('/load-slot', { method: 'POST', body: slotName });
       renderState(state);
+      showWindowStatus(`Loaded slot ${slotName}.`);
       document.getElementById('command').focus();
     }
 
     async function deleteSlot() {
-      const state = await requestJson('/delete-slot', { method: 'POST', body: currentSlotName() });
+      const slotName = currentSlotName();
+      const state = await requestJson('/delete-slot', { method: 'POST', body: slotName });
       renderState(state);
+      showWindowStatus(`Deleted slot ${slotName}.`);
       document.getElementById('command').focus();
     }
 
@@ -1381,7 +1396,9 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function exportSaveText() {
-      document.getElementById('save-export').value = await requestText('/export-save');
+      const exported = await requestText('/export-save');
+      document.getElementById('save-export').value = exported;
+      showWindowStatus(`Exported current save text (${exported.length} bytes).`);
       document.getElementById('save-export').focus();
     }
 
@@ -1389,6 +1406,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       const body = document.getElementById('save-export').value;
       const state = await requestJson('/import-save', { method: 'POST', body });
       renderState(state);
+      showWindowStatus(`Imported save text (${body.length} bytes).`);
       document.getElementById('command').focus();
     }
 
@@ -1605,6 +1623,18 @@ mod tests {
         assert!(WINDOW_HTML.contains("Copy save path"));
         assert!(WINDOW_HTML.contains("Copy transcript path"));
         assert!(WINDOW_HTML.contains("renderPersistenceActions"));
+    }
+
+    #[test]
+    fn window_html_reports_persistence_action_success() {
+        assert!(WINDOW_HTML.contains("persistenceTargetSummary"));
+        assert!(WINDOW_HTML.contains("Saved ${persistenceTargetSummary(state)}."));
+        assert!(WINDOW_HTML.contains("Reloaded save ${state.save_path"));
+        assert!(WINDOW_HTML.contains("Saved slot ${slotName}."));
+        assert!(WINDOW_HTML.contains("Loaded slot ${slotName}."));
+        assert!(WINDOW_HTML.contains("Deleted slot ${slotName}."));
+        assert!(WINDOW_HTML.contains("Exported current save text (${exported.length} bytes)."));
+        assert!(WINDOW_HTML.contains("Imported save text (${body.length} bytes)."));
     }
 
     #[test]
