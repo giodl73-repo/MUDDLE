@@ -94,8 +94,9 @@ runner supports `--save`, `--load`, and `--transcript` for command-replay
 session persistence with optional host-owned checkpoints, renders host-provided
 command hints as clickable action buttons, shows the full turn history in the
 browser, and exposes `/transcript` for the same transcript text as the CLI. The
-window also has an in-session **Restart host** control for replaying the current
-host while preserving configured save/transcript paths.
+window also has in-session **Save now**, **Reload save**, and **Restart host**
+controls for managing the current session while preserving configured
+save/transcript paths.
 
 ## Host extension model
 

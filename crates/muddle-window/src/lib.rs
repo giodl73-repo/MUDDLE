@@ -272,6 +272,24 @@ fn handle_connection(
                 &render_state_json(state)?,
             )
         }
+        ("POST", "/save") => {
+            save_state_now(state)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
+        ("POST", "/load-save") => {
+            reload_state_from_save_path(state)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
         ("POST", "/command") => {
             let command_text = request_body(&request).trim();
             if command_text.is_empty() {
@@ -308,6 +326,51 @@ fn reset_state_for_registration(
         state.save_path.clone(),
         state.transcript_path.clone(),
     )?;
+    Ok(())
+}
+
+fn save_state_now(state: &mut MuddleWindowState) -> io::Result<()> {
+    if state.save_path.is_none() && state.transcript_path.is_none() {
+        state.last_response =
+            "Start muddle-window with --save or --transcript before using Save now.".to_string();
+        return Ok(());
+    }
+
+    persist_state(state)?;
+    state.last_response = match (&state.save_path, &state.transcript_path) {
+        (Some(save_path), Some(transcript_path)) => format!(
+            "Saved session to {} and transcript to {}.",
+            save_path.display(),
+            transcript_path.display()
+        ),
+        (Some(save_path), None) => format!("Saved session to {}.", save_path.display()),
+        (None, Some(transcript_path)) => {
+            format!("Saved transcript to {}.", transcript_path.display())
+        }
+        (None, None) => unreachable!("checked above"),
+    };
+    Ok(())
+}
+
+fn reload_state_from_save_path(state: &mut MuddleWindowState) -> io::Result<()> {
+    let Some(save_path) = state.save_path.clone() else {
+        state.last_response =
+            "Start muddle-window with --save before using Reload save.".to_string();
+        return Ok(());
+    };
+    if !save_path.exists() {
+        state.last_response = format!("No save file found at {}.", save_path.display());
+        return Ok(());
+    }
+
+    *state = MuddleWindowState::new(
+        state.registration,
+        Some(save_path.clone()),
+        Some(save_path.clone()),
+        state.transcript_path.clone(),
+    )?;
+    state.last_response = format!("Reloaded save from {}.", save_path.display());
+    persist_state(state)?;
     Ok(())
 }
 
@@ -599,6 +662,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <p id="suggested"></p>
       <button id="change-host" class="secondary" type="button">Change host</button>
       <button id="reset-host" class="secondary" type="button">Restart host</button>
+      <button id="save-now" class="secondary" type="button">Save now</button>
+      <button id="load-save" class="secondary" type="button">Reload save</button>
       <p id="persistence" class="muted"></p>
       <h2>Panels</h2>
       <pre id="panels"></pre>
@@ -720,6 +785,16 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('change-host').addEventListener('click', showChooser);
     document.getElementById('reset-host').addEventListener('click', async () => {
       const state = await fetch('/reset', { method: 'POST' }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
+    document.getElementById('save-now').addEventListener('click', async () => {
+      const state = await fetch('/save', { method: 'POST' }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
+    document.getElementById('load-save').addEventListener('click', async () => {
+      const state = await fetch('/load-save', { method: 'POST' }).then(r => r.json());
       renderState(state);
       document.getElementById('command').focus();
     });
@@ -877,6 +952,60 @@ mod tests {
     }
 
     #[test]
+    fn save_now_writes_configured_paths() {
+        let save_path = temp_file_path("save-now.muddle");
+        let transcript_path = temp_file_path("save-now.txt");
+        let mut state = MuddleWindowState::new(
+            registration(),
+            None,
+            Some(save_path.clone()),
+            Some(transcript_path.clone()),
+        )
+        .expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Saved.");
+
+        save_state_now(&mut state).expect("state saves");
+
+        let saved = fs::read_to_string(&save_path).expect("save written");
+        let transcript = fs::read_to_string(&transcript_path).expect("transcript written");
+        assert!(saved.contains("command=look"));
+        assert!(transcript.contains("MUDDLE_TRANSCRIPT_V1"));
+        assert!(state.last_response.contains("Saved session"));
+
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(transcript_path);
+    }
+
+    #[test]
+    fn reload_save_uses_configured_save_path() {
+        let save_path = temp_file_path("reload-save.muddle");
+        let transcript_path = temp_file_path("reload-save.txt");
+        let mut state = MuddleWindowState::new(
+            registration(),
+            None,
+            Some(save_path.clone()),
+            Some(transcript_path.clone()),
+        )
+        .expect("state starts");
+        save_state_now(&mut state).expect("initial save writes");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Unsaved.");
+
+        reload_state_from_save_path(&mut state).expect("state reloads");
+
+        assert_eq!(state.session.transcript.len(), 0);
+        assert_eq!(state.save_path, Some(save_path.clone()));
+        assert_eq!(state.transcript_path, Some(transcript_path.clone()));
+        assert!(state.last_response.contains("Reloaded save"));
+
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(transcript_path);
+    }
+
+    #[test]
     fn rejects_empty_registrations() {
         assert!(run_muddle_window_hosts(
             Vec::new(),
@@ -886,5 +1015,9 @@ mod tests {
             }
         )
         .is_err());
+    }
+
+    fn temp_file_path(name: &str) -> PathBuf {
+        env::temp_dir().join(format!("muddle-window-test-{}-{name}", std::process::id()))
     }
 }
