@@ -2,10 +2,12 @@
 
 MUDDLE clients render the shared `MuddleClientSnapshot` from `muddle-core`. The
 snapshot is the product-neutral contract between host/session logic and any
-presentation layer.
+presentation layer. It includes raw play data plus reusable client controls for
+text, image, button, and layout/group intent.
 
-- MUDDLE owns rooms, commands, panels, turn history, saves, and checkpoints.
-- The client owns input, layout, rendering, audio, animation, and platform
+- MUDDLE owns rooms, commands, panels, turn history, saves, checkpoints, and
+  presentation intent.
+- The client owns input, concrete layout, rendering, audio, animation, and platform
   integration.
 - The client sends commands into `MuddleSession::play_turn` and re-renders a new
   `MuddleClientSnapshot`.
@@ -40,3 +42,10 @@ surface: active host metadata, room card, resources, inventory, objectives, map,
 recent log, command hints, visible status, turn count, and recent history. It
 does not own browser-only save-slot UX or product rules; those remain shared
 MUDDLE session contracts and host responsibilities.
+
+The Macroquad renderer now maps the snapshot into explicit game-client regions:
+header, room, panels, commands, status, and history. Host command hints render as
+native clickable buttons that submit the same command strings as typed input.
+This keeps "what should be shown" reusable across clients while letting each
+client decide how text, image placeholders, button controls, and layout groups
+are drawn.

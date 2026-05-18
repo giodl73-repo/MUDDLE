@@ -69,6 +69,32 @@ pub struct MuddleClientSnapshot {
     pub panels: MuddleClientPanels,
     pub commands: Vec<MuddleCommandHint>,
     pub history: Vec<MuddleClientHistoryEntry>,
+    pub controls: Vec<MuddleClientControl>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientControl {
+    pub id: String,
+    pub kind: MuddleClientControlKind,
+    pub label: String,
+    pub text: Option<String>,
+    pub image: Option<MuddleClientImage>,
+    pub command: Option<String>,
+    pub children: Vec<MuddleClientControl>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MuddleClientControlKind {
+    Text,
+    Image,
+    Button,
+    Group,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientImage {
+    pub source: String,
+    pub alt: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,6 +243,72 @@ impl MuddleClientHostRegistration {
     }
 }
 
+impl MuddleClientControl {
+    pub fn text(id: impl Into<String>, label: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleClientControlKind::Text,
+            label: label.into(),
+            text: Some(text.into()),
+            image: None,
+            command: None,
+            children: Vec::new(),
+        }
+    }
+
+    pub fn image(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        source: impl Into<String>,
+        alt: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleClientControlKind::Image,
+            label: label.into(),
+            text: None,
+            image: Some(MuddleClientImage {
+                source: source.into(),
+                alt: alt.into(),
+            }),
+            command: None,
+            children: Vec::new(),
+        }
+    }
+
+    pub fn button(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        command: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleClientControlKind::Button,
+            label: label.into(),
+            text: None,
+            image: None,
+            command: Some(command.into()),
+            children: Vec::new(),
+        }
+    }
+
+    pub fn group(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        children: Vec<MuddleClientControl>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: MuddleClientControlKind::Group,
+            label: label.into(),
+            text: None,
+            image: None,
+            command: None,
+            children,
+        }
+    }
+}
+
 impl MuddleRoom {
     pub fn ascii_card(&self) -> String {
         let exits = self
@@ -354,37 +446,56 @@ impl MuddleSession {
         info: MuddleClientInfo,
         last_response: impl Into<String>,
     ) -> MuddleClientSnapshot {
+        let host_name = info.host;
+        let description = info.description;
+        let suggested_commands = info.suggested_commands;
+        let room = self.current_room.clone();
+        let turns = self.transcript.len();
+        let room_card = host
+            .room(&self.current_room)
+            .map(MuddleRoom::ascii_card)
+            .unwrap_or_else(|| format!("Room missing: {}", self.current_room));
+        let last_response = last_response.into();
+        let panels = MuddleClientPanels {
+            resources: host.resource_panel(),
+            inventory: host.inventory_panel(),
+            map: host.map_panel(&self.current_room),
+            objectives: host.objective_panel(&self.current_room),
+            recent_log: self.recent_log_panel(3),
+        };
         let commands = host.command_panel(&self.current_room);
+        let history = self
+            .transcript
+            .iter()
+            .enumerate()
+            .map(|(index, turn)| MuddleClientHistoryEntry {
+                turn: index + 1,
+                room: turn.room_id.clone(),
+                command: turn.command.normalized(),
+                response: turn.response.clone(),
+            })
+            .collect::<Vec<_>>();
+        let controls = build_client_controls(
+            &host_name,
+            &description,
+            &room_card,
+            &last_response,
+            &panels,
+            &commands,
+            &history,
+        );
         MuddleClientSnapshot {
-            host: info.host,
-            description: info.description,
-            suggested_commands: info.suggested_commands,
-            room: self.current_room.clone(),
-            turns: self.transcript.len(),
-            room_card: host
-                .room(&self.current_room)
-                .map(MuddleRoom::ascii_card)
-                .unwrap_or_else(|| format!("Room missing: {}", self.current_room)),
-            last_response: last_response.into(),
-            panels: MuddleClientPanels {
-                resources: host.resource_panel(),
-                inventory: host.inventory_panel(),
-                map: host.map_panel(&self.current_room),
-                objectives: host.objective_panel(&self.current_room),
-                recent_log: self.recent_log_panel(3),
-            },
+            host: host_name,
+            description,
+            suggested_commands,
+            room,
+            turns,
+            room_card,
+            last_response,
+            panels,
             commands,
-            history: self
-                .transcript
-                .iter()
-                .enumerate()
-                .map(|(index, turn)| MuddleClientHistoryEntry {
-                    turn: index + 1,
-                    room: turn.room_id.clone(),
-                    command: turn.command.normalized(),
-                    response: turn.response.clone(),
-                })
-                .collect(),
+            history,
+            controls,
         }
     }
 
@@ -504,6 +615,174 @@ impl MuddleStaticHost {
     }
 }
 
+fn build_client_controls(
+    host_name: &str,
+    description: &str,
+    room_card: &str,
+    last_response: &str,
+    panels: &MuddleClientPanels,
+    commands: &[MuddleCommandHint],
+    history: &[MuddleClientHistoryEntry],
+) -> Vec<MuddleClientControl> {
+    let mut controls = vec![
+        MuddleClientControl::group(
+            "header",
+            "Header",
+            vec![
+                MuddleClientControl::text("host", "Host", host_name),
+                MuddleClientControl::text("description", "Description", description),
+            ],
+        ),
+        MuddleClientControl::text("room-card", "Room", room_card),
+    ];
+
+    let mut panel_controls = Vec::new();
+    if !panels.resources.is_empty() {
+        panel_controls.push(MuddleClientControl::group(
+            "resources",
+            "Resources",
+            panels
+                .resources
+                .iter()
+                .map(|resource| {
+                    MuddleClientControl::text(
+                        format!("resource-{}", control_id_fragment(&resource.label)),
+                        &resource.label,
+                        &resource.value,
+                    )
+                })
+                .collect(),
+        ));
+    }
+    if !panels.inventory.is_empty() {
+        panel_controls.push(MuddleClientControl::group(
+            "inventory",
+            "Inventory",
+            panels
+                .inventory
+                .iter()
+                .map(|item| {
+                    MuddleClientControl::text(
+                        format!("inventory-{}", control_id_fragment(&item.label)),
+                        &item.label,
+                        &item.detail,
+                    )
+                })
+                .collect(),
+        ));
+    }
+    if !panels.objectives.is_empty() {
+        panel_controls.push(MuddleClientControl::group(
+            "objectives",
+            "Objectives",
+            panels
+                .objectives
+                .iter()
+                .enumerate()
+                .map(|(index, objective)| {
+                    MuddleClientControl::text(
+                        format!("objective-{}", index + 1),
+                        "Objective",
+                        objective,
+                    )
+                })
+                .collect(),
+        ));
+    }
+    if let Some(map) = &panels.map {
+        panel_controls.push(MuddleClientControl::text("map", "Map", map));
+    }
+    if !panels.recent_log.is_empty() {
+        panel_controls.push(MuddleClientControl::group(
+            "recent-log",
+            "Recent log",
+            panels
+                .recent_log
+                .iter()
+                .enumerate()
+                .map(|(index, entry)| {
+                    MuddleClientControl::text(format!("recent-log-{}", index + 1), "Log", entry)
+                })
+                .collect(),
+        ));
+    }
+    if !panel_controls.is_empty() {
+        controls.push(MuddleClientControl::group(
+            "panels",
+            "Panels",
+            panel_controls,
+        ));
+    }
+
+    if !commands.is_empty() {
+        controls.push(MuddleClientControl::group(
+            "commands",
+            "Commands",
+            commands
+                .iter()
+                .enumerate()
+                .map(|(index, hint)| {
+                    MuddleClientControl::button(
+                        format!("command-{}", index + 1),
+                        format!("{} - {}", hint.command, hint.description),
+                        &hint.command,
+                    )
+                })
+                .collect(),
+        ));
+    }
+
+    controls.push(MuddleClientControl::text("status", "Status", last_response));
+
+    if !history.is_empty() {
+        controls.push(MuddleClientControl::group(
+            "history",
+            "History",
+            history
+                .iter()
+                .rev()
+                .take(8)
+                .map(|turn| {
+                    MuddleClientControl::text(
+                        format!("history-{}", turn.turn),
+                        format!("{}. {}", turn.turn, turn.command),
+                        format!(
+                            "{} @ {} -> {}",
+                            turn.command,
+                            turn.room,
+                            turn.response.lines().next().unwrap_or_default()
+                        ),
+                    )
+                })
+                .collect(),
+        ));
+    }
+
+    controls
+}
+
+fn control_id_fragment(value: &str) -> String {
+    let fragment = value
+        .chars()
+        .filter_map(|character| {
+            if character.is_ascii_alphanumeric() {
+                Some(character.to_ascii_lowercase())
+            } else if character.is_whitespace() || character == '-' || character == '_' {
+                Some('-')
+            } else {
+                None
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    if fragment.is_empty() {
+        "item".to_string()
+    } else {
+        fragment
+    }
+}
+
 fn encode_field(value: &str) -> String {
     value
         .replace('%', "%25")
@@ -606,6 +885,44 @@ mod tests {
             }
         );
         assert_eq!(MuddleCommand::parse("").verb, "look");
+    }
+
+    #[test]
+    fn client_snapshot_includes_reusable_controls() {
+        let host = MuddleStaticHost::try_new(
+            "camp",
+            vec![MuddleRoom {
+                id: "camp".to_string(),
+                title: "Camp".to_string(),
+                description: "A reusable control test room.".to_string(),
+                exits: vec![MuddleExit {
+                    command: "go trail".to_string(),
+                    target_room: "trail".to_string(),
+                    label: "Trail".to_string(),
+                }],
+            }],
+        )
+        .expect("host builds");
+        let session = MuddleSession::for_host(&host).expect("session starts");
+        let snapshot = session.client_snapshot(
+            &host,
+            MuddleClientInfo {
+                host: "test-host".to_string(),
+                description: "Control host".to_string(),
+                suggested_commands: "look".to_string(),
+            },
+            "Ready.",
+        );
+
+        assert!(snapshot
+            .controls
+            .iter()
+            .any(|control| control.id == "room-card"
+                && control.kind == MuddleClientControlKind::Text));
+        assert!(snapshot
+            .controls
+            .iter()
+            .any(|control| control.id == "status" && control.text.as_deref() == Some("Ready.")));
     }
 
     #[test]

@@ -41,7 +41,7 @@ Current crates:
 
 | Crate | Purpose |
 |---|---|
-| `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, transcripts, and host adapter contracts. |
+| `muddle-core` | Product-neutral rooms, exits, commands, sessions, ASCII cards, transcripts, host adapter contracts, and reusable client text/image/layout/button controls. |
 | `muddle-amaze-spike` | AMAZE Silverstream adapter spike that proves escape-room clue/lock mounting before replacing it with AMAZE-owned APIs. |
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
@@ -54,8 +54,9 @@ Current crates:
 MUDDLE starts with CLI because it is deterministic, scriptable, and useful for
 testing host adapters. Browser and game-engine clients consume the same
 `MuddleClientSnapshot` from `muddle-core`: MUDDLE owns rooms, commands, panels,
-turn history, saves, and checkpoints, while each client owns input, layout,
-rendering, audio, animation, and platform integration.
+turn history, saves, checkpoints, and reusable client controls for text, image,
+button, and layout/group intent, while each client owns input, rendering, audio,
+animation, and platform integration.
 
 The shared play surface already has the first common game-screen panels:
 
@@ -140,7 +141,9 @@ returns to host selection, F5 restarts the current host, F6 saves configured
 outputs, F7 reloads the configured save path, and Escape quits. Macroquad renders
 room cards, resource/inventory/objective/map panels, command hints, visible
 status, turn count, and recent history from the shared snapshot while leaving
-product rules in the mounted host.
+product rules in the mounted host. Its renderer now builds explicit header,
+room, panel, command, status, and history regions, and host command hints render
+as clickable native buttons rather than only flat text.
 
 ## Host extension model
 

@@ -27,6 +27,30 @@ pub enum MuddleMacroquadMode {
     Playing,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadPlayLayout {
+    pub header: Vec<String>,
+    pub room: MuddleMacroquadTextRegion,
+    pub panels: Vec<MuddleMacroquadTextRegion>,
+    pub commands: Vec<MuddleMacroquadCommandControl>,
+    pub status: MuddleMacroquadTextRegion,
+    pub history: MuddleMacroquadTextRegion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadTextRegion {
+    pub id: String,
+    pub label: String,
+    pub lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadCommandControl {
+    pub index: usize,
+    pub label: String,
+    pub command: String,
+}
+
 pub struct MuddleMacroquadState {
     registrations: Vec<MuddleClientHostRegistration>,
     registration: MuddleClientHostRegistration,
@@ -340,6 +364,11 @@ impl MuddleMacroquadState {
             MuddleMacroquadMode::HostChooser => self.host_chooser_lines(),
             MuddleMacroquadMode::Playing => snapshot_display_lines(&self.snapshot(), &self.input),
         }
+    }
+
+    pub fn play_layout(&self) -> Option<MuddleMacroquadPlayLayout> {
+        (self.mode == MuddleMacroquadMode::Playing)
+            .then(|| snapshot_play_layout(&self.snapshot(), &self.input))
     }
 
     pub fn snapshot(&self) -> MuddleClientSnapshot {
@@ -686,6 +715,113 @@ pub fn snapshot_display_lines(snapshot: &MuddleClientSnapshot, input: &str) -> V
     lines
 }
 
+pub fn snapshot_play_layout(
+    snapshot: &MuddleClientSnapshot,
+    input: &str,
+) -> MuddleMacroquadPlayLayout {
+    let mut panels = Vec::new();
+    if !snapshot.panels.resources.is_empty() {
+        panels.push(MuddleMacroquadTextRegion {
+            id: "resources".to_string(),
+            label: "Resources".to_string(),
+            lines: snapshot
+                .panels
+                .resources
+                .iter()
+                .map(|resource| format!("{}: {}", resource.label, resource.value))
+                .collect(),
+        });
+    }
+    if !snapshot.panels.inventory.is_empty() {
+        panels.push(MuddleMacroquadTextRegion {
+            id: "inventory".to_string(),
+            label: "Inventory".to_string(),
+            lines: snapshot
+                .panels
+                .inventory
+                .iter()
+                .map(|item| format!("{}: {}", item.label, item.detail))
+                .collect(),
+        });
+    }
+    if !snapshot.panels.objectives.is_empty() {
+        panels.push(MuddleMacroquadTextRegion {
+            id: "objectives".to_string(),
+            label: "Objectives".to_string(),
+            lines: snapshot.panels.objectives.clone(),
+        });
+    }
+    if let Some(map) = &snapshot.panels.map {
+        panels.push(MuddleMacroquadTextRegion {
+            id: "map".to_string(),
+            label: "Map".to_string(),
+            lines: map.lines().map(ToString::to_string).collect(),
+        });
+    }
+    if !snapshot.panels.recent_log.is_empty() {
+        panels.push(MuddleMacroquadTextRegion {
+            id: "recent-log".to_string(),
+            label: "Recent log".to_string(),
+            lines: snapshot.panels.recent_log.clone(),
+        });
+    }
+
+    MuddleMacroquadPlayLayout {
+        header: vec![
+            format!("{} - {}", snapshot.host, snapshot.description),
+            "F2 host | F5 restart | F6 save | F7 reload | Esc quit".to_string(),
+            format!("Input: {input}"),
+        ],
+        room: MuddleMacroquadTextRegion {
+            id: "room".to_string(),
+            label: "Room".to_string(),
+            lines: snapshot
+                .room_card
+                .lines()
+                .map(ToString::to_string)
+                .collect(),
+        },
+        panels,
+        commands: snapshot
+            .commands
+            .iter()
+            .enumerate()
+            .map(|(index, hint)| MuddleMacroquadCommandControl {
+                index,
+                label: format!("{} - {}", hint.command, hint.description),
+                command: hint.command.clone(),
+            })
+            .collect(),
+        status: MuddleMacroquadTextRegion {
+            id: "status".to_string(),
+            label: "Status".to_string(),
+            lines: vec![
+                snapshot.last_response.clone(),
+                format!("Turns: {}", snapshot.turns),
+            ],
+        },
+        history: MuddleMacroquadTextRegion {
+            id: "history".to_string(),
+            label: "History".to_string(),
+            lines: snapshot
+                .history
+                .iter()
+                .rev()
+                .take(8)
+                .map(|turn| {
+                    format!(
+                        "{}. {} @ {} -> {}",
+                        turn.turn,
+                        turn.command,
+                        turn.room,
+                        turn.response.lines().next().unwrap_or_default()
+                    )
+                })
+                .collect(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -712,6 +848,21 @@ mod tests {
             .display_lines()
             .iter()
             .any(|line| line.contains("Recent history")));
+    }
+
+    #[test]
+    fn macroquad_play_layout_exposes_regions_and_commands() {
+        let state = MuddleMacroquadState::new().expect("state starts");
+        let layout = state.play_layout().expect("playing state has layout");
+        assert_eq!(layout.room.id, "room");
+        assert!(layout
+            .panels
+            .iter()
+            .any(|panel| panel.id == "resources" || panel.id == "map"));
+        assert!(layout
+            .commands
+            .iter()
+            .any(|command| command.command == "look"));
     }
 
     #[test]
