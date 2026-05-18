@@ -1,12 +1,13 @@
 use std::{
-    env,
+    env, fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
+    path::PathBuf,
     process::Command,
 };
 
-use muddle_cli::write_play_panels;
-use muddle_core::{MuddleCommand, MuddleHost, MuddleSession};
+use muddle_cli::{render_transcript, write_play_panels, MuddleCliHostInfo};
+use muddle_core::{MuddleCommand, MuddleHost, MuddleSession, MuddleSessionSave};
 
 #[derive(Clone, Copy)]
 pub struct MuddleWindowHostRegistration {
@@ -22,6 +23,9 @@ pub struct MuddleWindowRunOptions {
     pub addr: String,
     pub open: bool,
     pub list_hosts: bool,
+    pub load_path: Option<PathBuf>,
+    pub save_path: Option<PathBuf>,
+    pub transcript_path: Option<PathBuf>,
 }
 
 struct MuddleWindowState {
@@ -29,6 +33,8 @@ struct MuddleWindowState {
     session: MuddleSession,
     registration: MuddleWindowHostRegistration,
     last_response: String,
+    save_path: Option<PathBuf>,
+    transcript_path: Option<PathBuf>,
 }
 
 impl Default for MuddleWindowRunOptions {
@@ -38,6 +44,9 @@ impl Default for MuddleWindowRunOptions {
             addr: "127.0.0.1:4777".to_string(),
             open: false,
             list_hosts: false,
+            load_path: None,
+            save_path: None,
+            transcript_path: None,
         }
     }
 }
@@ -77,7 +86,12 @@ pub fn run_muddle_window_hosts(
     };
 
     let url = format!("http://{}", options.addr);
-    let mut state = MuddleWindowState::new(registration)?;
+    let mut state = MuddleWindowState::new(
+        registration,
+        options.load_path.clone(),
+        options.save_path.clone(),
+        options.transcript_path.clone(),
+    )?;
     let listener = TcpListener::bind(&options.addr)?;
     println!("MUDDLE window client listening at {url}");
     println!("Host mounted: {}", state.registration.name);
@@ -117,6 +131,24 @@ pub fn parse_window_run_options(
                     io::Error::new(io::ErrorKind::InvalidInput, "`--addr` requires an address")
                 })?;
             }
+            "--load" => {
+                options.load_path = Some(PathBuf::from(args.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "`--load` requires a path")
+                })?));
+            }
+            "--save" => {
+                options.save_path = Some(PathBuf::from(args.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "`--save` requires a path")
+                })?));
+            }
+            "--transcript" => {
+                options.transcript_path = Some(PathBuf::from(args.next().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "`--transcript` requires a path",
+                    )
+                })?));
+            }
             _ => {
                 if let Some(value) = arg.strip_prefix("--host=") {
                     if value.is_empty() {
@@ -134,6 +166,30 @@ pub fn parse_window_run_options(
                         ));
                     }
                     options.addr = value.to_string();
+                } else if let Some(value) = arg.strip_prefix("--load=") {
+                    if value.is_empty() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "`--load` requires a path",
+                        ));
+                    }
+                    options.load_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--save=") {
+                    if value.is_empty() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "`--save` requires a path",
+                        ));
+                    }
+                    options.save_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--transcript=") {
+                    if value.is_empty() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "`--transcript` requires a path",
+                        ));
+                    }
+                    options.transcript_path = Some(PathBuf::from(value));
                 } else {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
@@ -177,7 +233,13 @@ fn handle_connection(
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
             if let Some(registration) = find_window_host(registrations, host_name) {
-                *state = MuddleWindowState::new(registration)?;
+                *state = MuddleWindowState::new(
+                    registration,
+                    None,
+                    state.save_path.clone(),
+                    state.transcript_path.clone(),
+                )?;
+                persist_state(state)?;
                 write_response(
                     &mut stream,
                     "200 OK",
@@ -208,6 +270,7 @@ fn handle_connection(
                     Ok(turn) => state.last_response = turn.response.clone(),
                     Err(error) => state.last_response = format!("Command failed: {error:?}"),
                 }
+                persist_state(state)?;
             }
             write_response(
                 &mut stream,
@@ -222,21 +285,65 @@ fn handle_connection(
 }
 
 impl MuddleWindowState {
-    fn new(registration: MuddleWindowHostRegistration) -> io::Result<Self> {
-        let host = (registration.create)();
-        let session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("registered window host cannot start: {error:?}"),
+    fn new(
+        registration: MuddleWindowHostRegistration,
+        load_path: Option<PathBuf>,
+        save_path: Option<PathBuf>,
+        transcript_path: Option<PathBuf>,
+    ) -> io::Result<Self> {
+        let mut host = (registration.create)();
+        let (session, last_response) = if let Some(path) = load_path {
+            let encoded = fs::read_to_string(&path)?;
+            let save = MuddleSessionSave::decode(&encoded).map_err(|error| {
+                io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}"))
+            })?;
+            let session =
+                MuddleSession::resume_for_host(host.as_mut(), &save).map_err(|error| {
+                    io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}"))
+                })?;
+            (
+                session,
+                format!("Loaded MUDDLE window session from {}.", path.display()),
             )
-        })?;
+        } else {
+            let session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("registered window host cannot start: {error:?}"),
+                )
+            })?;
+            (session, "Window session ready.".to_string())
+        };
+
         Ok(Self {
             host,
             session,
             registration,
-            last_response: "Window session ready.".to_string(),
+            last_response,
+            save_path,
+            transcript_path,
         })
     }
+}
+
+fn persist_state(state: &MuddleWindowState) -> io::Result<()> {
+    if let Some(path) = &state.save_path {
+        fs::write(path, state.session.save().encode())?;
+    }
+    if let Some(path) = &state.transcript_path {
+        fs::write(
+            path,
+            render_transcript(
+                MuddleCliHostInfo {
+                    name: state.registration.name,
+                    description: state.registration.description,
+                    suggested_commands: state.registration.suggested_commands,
+                },
+                &state.session,
+            ),
+        )?;
+    }
+    Ok(())
 }
 
 fn find_window_host(
@@ -284,7 +391,7 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         .unwrap_or_else(|| format!("Room missing: {}", state.session.current_room));
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\"}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\"}}",
         json_escape(state.registration.name),
         json_escape(state.registration.description),
         json_escape(state.registration.suggested_commands),
@@ -292,8 +399,16 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         state.session.transcript.len(),
         json_escape(&panels),
         json_escape(&room_card),
-        json_escape(&state.last_response)
+        json_escape(&state.last_response),
+        json_escape(&display_path(&state.save_path)),
+        json_escape(&display_path(&state.transcript_path))
     ))
+}
+
+fn display_path(path: &Option<PathBuf>) -> String {
+    path.as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_default()
 }
 
 fn request_line(request: &str) -> (&str, &str) {
@@ -398,6 +513,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <p id="host" class="muted"></p>
       <p id="suggested"></p>
       <button id="change-host" class="secondary" type="button">Change host</button>
+      <p id="persistence" class="muted"></p>
       <h2>Panels</h2>
       <pre id="panels"></pre>
     </section>
@@ -459,6 +575,10 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('panels').textContent = state.panels || '(no panels)';
       document.getElementById('card').textContent = state.room_card;
       document.getElementById('response').textContent = state.last_response;
+      const persistence = [];
+      if (state.save_path) persistence.push(`save: ${state.save_path}`);
+      if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
+      document.getElementById('persistence').textContent = persistence.join(' | ');
     }
 
     document.getElementById('change-host').addEventListener('click', showChooser);
@@ -529,9 +649,17 @@ mod tests {
     fn parses_window_options() {
         assert_eq!(
             parse_window_run_options(
-                ["--host", "empty", "--addr=127.0.0.1:4888", "--open"]
-                    .into_iter()
-                    .map(String::from)
+                [
+                    "--host",
+                    "empty",
+                    "--addr=127.0.0.1:4888",
+                    "--open",
+                    "--save",
+                    "save.muddle",
+                    "--transcript=transcript.txt"
+                ]
+                .into_iter()
+                .map(String::from)
             )
             .expect("options parse"),
             MuddleWindowRunOptions {
@@ -539,6 +667,9 @@ mod tests {
                 addr: "127.0.0.1:4888".to_string(),
                 open: true,
                 list_hosts: false,
+                load_path: None,
+                save_path: Some("save.muddle".into()),
+                transcript_path: Some("transcript.txt".into()),
             }
         );
     }

@@ -21,6 +21,8 @@ If `--open` is omitted, open the printed local URL manually.
 
 ```powershell
 cargo run -p muddle-window -- --addr 127.0.0.1:4777
+cargo run -p muddle-window -- --host banish-pilgrim-loss --save pilgrim-loss.window.muddle --transcript pilgrim-loss.window.txt --open
+cargo run -p muddle-window -- --host banish-pilgrim-loss --load pilgrim-loss.window.muddle --save pilgrim-loss.window.muddle --transcript pilgrim-loss.window.txt --open
 ```
 
 The front screen lists every mounted host. Choosing a host starts a fresh local
@@ -32,6 +34,9 @@ Knowledge Systems, Design Labs, and infrastructure.
 Product repos can depend on the `muddle-window` crate and call
 `run_muddle_window_hosts_from_env_args()` with their own `MuddleHost`
 registrations. This mirrors the existing reusable `muddle-cli` runner shape.
+The runner accepts `--save`, `--load`, and `--transcript`; saves use the same
+command-replay format as the CLI and transcripts use the same transcript
+renderer.
 
 ## Boundary
 

@@ -74,6 +74,7 @@ cargo run -p muddle-cli -- --host mock-labyrinth --script commands.txt --transcr
 cargo run -p muddle-window -- --open
 cargo run -p muddle-window -- --host portfolio-showcase --open
 cargo run -p muddle-window -- --host banish-pilgrim-loss --open
+cargo run -p muddle-window -- --host banish-pilgrim-loss --save pilgrim-loss.window.muddle --transcript pilgrim-loss.window.txt --open
 ```
 
 The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
@@ -88,7 +89,9 @@ and optionally opens the default browser with `--open`, while still using the
 same host/session contracts as the CLI. Its front screen includes a
 `portfolio-showcase` host for browsing games, Knowledge Systems, Design Labs,
 and infrastructure already visible through MUDDLE. Product repos can reuse the
-same window runner, just as they reuse the CLI runner.
+same window runner, just as they reuse the CLI runner. The reusable window
+runner supports `--save`, `--load`, and `--transcript` for command-replay
+session persistence.
 
 ## Host extension model
 

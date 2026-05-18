@@ -21,7 +21,7 @@ escape room without becoming either product's engine.
 | BANISH mounting | A BANISH adapter exposes a playable game surface through `MuddleHost`. |
 | AMAZE mounting | An AMAZE adapter exposes escape rooms, clues, locks, and puzzle state through `MuddleHost`. |
 | Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
-| Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts and expose a reusable runner for product-owned hosts. |
+| Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts and expose a reusable save/load/transcript-capable runner for product-owned hosts. |
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, and an ASCII map without custom renderer code. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -95,6 +95,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - CLI fixture play loop with named host selection
 - local browser-backed `muddle-window` client with named host selection
 - reusable `muddle-window` runner for product-owned hosts
+- window save/load/transcript parity with the CLI command-replay persistence model
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 
 ## Plan review
