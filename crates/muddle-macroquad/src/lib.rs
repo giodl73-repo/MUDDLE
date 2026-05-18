@@ -21,6 +21,7 @@ pub struct MuddleMacroquadRunOptions {
     pub host_name: Option<String>,
     pub list_hosts: bool,
     pub visual_smoke: bool,
+    pub require_visuals: bool,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
     pub save_path: Option<PathBuf>,
@@ -126,6 +127,7 @@ impl Default for MuddleMacroquadRunOptions {
             host_name: None,
             list_hosts: false,
             visual_smoke: false,
+            require_visuals: false,
             show_help: false,
             load_path: None,
             save_path: None,
@@ -1056,7 +1058,10 @@ pub async fn run_muddle_macroquad_hosts(
         return Ok(());
     }
     if options.visual_smoke {
-        println!("{}", macroquad_visual_smoke(&registrations)?);
+        println!(
+            "{}",
+            macroquad_visual_smoke(&registrations, options.require_visuals)?
+        );
         return Ok(());
     }
 
@@ -1404,6 +1409,7 @@ pub fn parse_macroquad_run_options(
             "--help" | "-h" => options.show_help = true,
             "--list-hosts" => options.list_hosts = true,
             "--visual-smoke" => options.visual_smoke = true,
+            "--require-visuals" => options.require_visuals = true,
             "--host" => {
                 options.host_name = Some(
                     args.next()
@@ -1482,7 +1488,7 @@ pub fn parse_macroquad_run_options(
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1498,8 +1504,10 @@ pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> St
 
 pub fn macroquad_visual_smoke(
     registrations: &[MuddleClientHostRegistration],
+    require_visuals: bool,
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
+    let mut missing_visual_hosts = Vec::new();
     for registration in registrations {
         let host = (registration.create)();
         let session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
@@ -1530,6 +1538,7 @@ pub fn macroquad_visual_smoke(
             .filter(|node| node.kind == MuddleVisualNodeKind::Group)
             .count();
         let status = if layout.visual_nodes.is_empty() {
+            missing_visual_hosts.push(registration.name);
             "no visual nodes"
         } else {
             "visual nodes ready"
@@ -1542,6 +1551,12 @@ pub fn macroquad_visual_smoke(
             text_count,
             group_count,
             status
+        ));
+    }
+    if require_visuals && !missing_visual_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts without visual nodes: {}",
+            missing_visual_hosts.join(", ")
         ));
     }
     Ok(lines.join("\n"))
@@ -2510,6 +2525,7 @@ mod tests {
             "exported.muddle".to_string(),
             "--list-hosts".to_string(),
             "--visual-smoke".to_string(),
+            "--require-visuals".to_string(),
         ])
         .expect("args parse");
         assert_eq!(options.host_name.as_deref(), Some("banish-pilgrim-loss"));
@@ -2518,22 +2534,43 @@ mod tests {
         assert_eq!(options.export_path, Some(PathBuf::from("exported.muddle")));
         assert!(options.list_hosts);
         assert!(options.visual_smoke);
+        assert!(options.require_visuals);
     }
 
     #[test]
     fn macroquad_visual_smoke_reports_registered_visual_nodes() {
-        let output = macroquad_visual_smoke(&[MuddleClientHostRegistration {
-            name: "visual-host",
-            category: "Tests",
-            description: "Visual smoke test host.",
-            suggested_commands: "`look`.",
-            create: || Box::new(VisualSmokeTestHost::new()),
-        }])
+        let output = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+        )
         .expect("visual smoke succeeds");
 
         assert!(output.contains("visual-host: 2 total"));
         assert!(output.contains("sprites=1"));
         assert!(output.contains("text=1"));
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_can_require_visual_nodes() {
+        let error = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "plain-host",
+                category: "Tests",
+                description: "Plain smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(MuddleMockSimHost::new()),
+            }],
+            true,
+        )
+        .expect_err("strict visual smoke fails without nodes");
+
+        assert!(error.contains("plain-host"));
     }
 
     struct VisualSmokeTestHost {

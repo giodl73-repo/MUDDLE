@@ -15,7 +15,7 @@ async fn main() {
         Err(error) => {
             eprintln!("{error}");
             eprintln!("{}", muddle_macroquad::macroquad_usage());
-            return;
+            std::process::exit(1);
         }
     };
 
@@ -27,5 +27,6 @@ async fn main() {
     .await
     {
         eprintln!("{error}");
+        std::process::exit(1);
     }
 }
