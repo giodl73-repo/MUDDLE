@@ -46,7 +46,9 @@ compatible host can expose its next legal/common commands without custom window
 code. The command box keeps browser-local command recall with Up/Down keys so
 typed and clicked commands can be replayed without leaving the current window.
 The browser view also renders the full turn history and links to `/transcript`,
-which returns the same text transcript format used by `muddle-cli`. The layout
+which returns the same text transcript format used by `muddle-cli`. A
+browser-local history filter matches turn number, room, command, and response
+text, with visible matching/total counts for longer sessions. The layout
 collapses to a single column on narrower browser windows, and the command form
 stays sticky near the bottom of the viewport so long histories do not push input
 out of reach. Failed local HTTP requests render a visible in-window status

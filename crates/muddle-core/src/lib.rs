@@ -42,6 +42,50 @@ pub struct MuddleSessionSave {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientInfo {
+    pub host: String,
+    pub description: String,
+    pub suggested_commands: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientSnapshot {
+    pub host: String,
+    pub description: String,
+    pub suggested_commands: String,
+    pub room: String,
+    pub turns: usize,
+    pub room_card: String,
+    pub last_response: String,
+    pub panels: MuddleClientPanels,
+    pub commands: Vec<MuddleCommandHint>,
+    pub history: Vec<MuddleClientHistoryEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientPanels {
+    pub resources: Vec<MuddleResource>,
+    pub inventory: Vec<MuddleInventoryItem>,
+    pub map: Option<String>,
+    pub objectives: Vec<String>,
+    pub recent_log: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleClientHistoryEntry {
+    pub turn: usize,
+    pub room: String,
+    pub command: String,
+    pub response: String,
+}
+
+pub trait MuddleClient {
+    type Error;
+
+    fn render_snapshot(&mut self, snapshot: &MuddleClientSnapshot) -> Result<(), Self::Error>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MuddleCommandOutcome {
     pub response: String,
     pub next_room: Option<String>,
@@ -283,6 +327,55 @@ impl MuddleSession {
         }
 
         Ok(session)
+    }
+
+    pub fn client_snapshot<H: MuddleHost + ?Sized>(
+        &self,
+        host: &H,
+        info: MuddleClientInfo,
+        last_response: impl Into<String>,
+    ) -> MuddleClientSnapshot {
+        let commands = host.command_panel(&self.current_room);
+        MuddleClientSnapshot {
+            host: info.host,
+            description: info.description,
+            suggested_commands: info.suggested_commands,
+            room: self.current_room.clone(),
+            turns: self.transcript.len(),
+            room_card: host
+                .room(&self.current_room)
+                .map(MuddleRoom::ascii_card)
+                .unwrap_or_else(|| format!("Room missing: {}", self.current_room)),
+            last_response: last_response.into(),
+            panels: MuddleClientPanels {
+                resources: host.resource_panel(),
+                inventory: host.inventory_panel(),
+                map: host.map_panel(&self.current_room),
+                objectives: host.objective_panel(&self.current_room),
+                recent_log: self.recent_log_panel(3),
+            },
+            commands,
+            history: self
+                .transcript
+                .iter()
+                .enumerate()
+                .map(|(index, turn)| MuddleClientHistoryEntry {
+                    turn: index + 1,
+                    room: turn.room_id.clone(),
+                    command: turn.command.normalized(),
+                    response: turn.response.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    pub fn recent_log_panel(&self, limit: usize) -> Vec<String> {
+        self.transcript
+            .iter()
+            .rev()
+            .take(limit)
+            .map(|turn| format!("{} -> {}", turn.command.normalized(), turn.response))
+            .collect()
     }
 }
 

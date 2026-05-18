@@ -46,14 +46,16 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
+| `muddle-macroquad` | Lightweight Macroquad game-window spike proving the shared client snapshot can run inside a Rust engine loop. |
 | `muddle-window` | Reusable local browser-backed window runner, grouped/filterable host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
 
 MUDDLE starts with CLI because it is deterministic, scriptable, and useful for
-testing host adapters. A richer TUI/window renderer should come later as another
-surface over the same `muddle-core` session and host contracts, not as a
-separate engine.
+testing host adapters. Browser and game-engine clients consume the same
+`MuddleClientSnapshot` from `muddle-core`: MUDDLE owns rooms, commands, panels,
+turn history, saves, and checkpoints, while each client owns input, layout,
+rendering, audio, animation, and platform integration.
 
 The shared play surface already has the first common game-screen panels:
 
@@ -96,10 +98,12 @@ supports `--save`, `--load`, and `--transcript` for command-replay session
 persistence with optional host-owned checkpoints, renders host-provided command
 hints as clickable action buttons, supports Up/Down command recall in the
 command box, shows the full turn history in the browser, and exposes
-`/transcript` for the same transcript text as the CLI. The responsive browser
-layout collapses cleanly on narrower displays and keeps the command form sticky
-during long sessions. Browser-side request failures are shown in-window instead
-of disappearing into the developer console. Keyboard shortcuts cover common
+`/transcript` for the same transcript text as the CLI. The history view can be
+filtered by turn, room, command, or response text and shows matching/total
+counts for long sessions. The responsive browser layout collapses cleanly on
+narrower displays and keeps the command form sticky during long sessions.
+Browser-side request failures are shown in-window instead of disappearing into
+the developer console. Keyboard shortcuts cover common
 persistence actions: Ctrl+S saves, Ctrl+R reloads, Ctrl+E exports save text, and
 Ctrl+I imports save text. The active save and transcript output paths can be
 copied from the browser when configured. The window also has in-session

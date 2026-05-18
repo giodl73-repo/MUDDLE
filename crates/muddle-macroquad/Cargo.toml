@@ -1,0 +1,17 @@
+[package]
+name = "muddle-macroquad"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "muddle_macroquad"
+path = "src/lib.rs"
+
+[[bin]]
+name = "muddle-macroquad"
+path = "src/main.rs"
+
+[dependencies]
+macroquad = "0.4"
+muddle-core = { path = "../muddle-core" }
+muddle-mock-sim = { path = "../muddle-mock-sim" }

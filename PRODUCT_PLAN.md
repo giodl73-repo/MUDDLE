@@ -25,11 +25,13 @@ escape room without becoming either product's engine.
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
 | Host chooser scale | The browser host chooser groups registrations by category and filters by host metadata as more product surfaces are mounted. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
-| Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
+| Window history | The browser window shows filterable full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
 | Browser persistence controls | Players can save immediately, reload the configured save file, copy active save/transcript output paths, see disabled states for unavailable actions, and see success details without restarting the local runner, including keyboard shortcuts for common actions. |
 | Browser save slots | Players can save, filter, sort, select, inspect, copy paths/text for, load, and delete named sibling save files from the browser while keeping the configured active `--save` path. |
 | Browser save import/export | Players can copy portable command-replay save text from the browser and import compatible save text back into the mounted host. |
 | Browser request status | Local window request failures are surfaced inside the browser instead of failing silently. |
+| Engine client contract | Browser and game-engine clients consume the shared `MuddleClientSnapshot` surface from `muddle-core`. |
+| Macroquad runner spike | A lightweight Macroquad window proves MUDDLE can run inside a Rust game-engine loop without moving product rules into the renderer. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -112,10 +114,13 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - visible browser status for failed local window requests
 - Ctrl+S/Ctrl+R/Ctrl+E/Ctrl+I shortcuts for save, reload, export, and import
 - in-window full turn history and local `/transcript` endpoint
+- browser-local turn history filter with visible matching/total counts
 - in-window save-now, reload-save, copy-path, and action-success status for configured persistence paths
 - in-window named save-slot create/filter/sort/select/inspect/copy-path/export-text/load/delete controls over sibling command-replay save files
 - in-window save text import/export over the shared command-replay format
 - in-window current-host restart/reset control
+- shared `MuddleClientSnapshot` contract for browser and engine clients
+- `muddle-macroquad` lightweight game-window spike over the mock labyrinth host
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 
 ## Plan review

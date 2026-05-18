@@ -7,8 +7,11 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use muddle_cli::{render_transcript, write_play_panels, MuddleCliHostInfo};
-use muddle_core::{MuddleCommand, MuddleHost, MuddleSession, MuddleSessionSave};
+use muddle_cli::{render_transcript, MuddleCliHostInfo};
+use muddle_core::{
+    MuddleClientInfo, MuddleClientPanels, MuddleClientSnapshot, MuddleCommand, MuddleHost,
+    MuddleSession, MuddleSessionSave,
+};
 
 #[derive(Clone, Copy)]
 pub struct MuddleWindowHostRegistration {
@@ -791,33 +794,76 @@ fn render_hosts_json(registrations: &[MuddleWindowHostRegistration]) -> String {
 }
 
 fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
-    let mut panels = Vec::new();
-    write_play_panels(&mut panels, state.host.as_ref(), &state.session)?;
-    let panels = String::from_utf8(panels)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let room_card = state
-        .host
-        .room(&state.session.current_room)
-        .map(|room| room.ascii_card())
-        .unwrap_or_else(|| format!("Room missing: {}", state.session.current_room));
-    let commands = render_commands_json(state);
-    let history = render_history_json(state);
+    let snapshot = state.session.client_snapshot(
+        state.host.as_ref(),
+        MuddleClientInfo {
+            host: state.registration.name.to_string(),
+            description: state.registration.description.to_string(),
+            suggested_commands: state.registration.suggested_commands.to_string(),
+        },
+        state.last_response.clone(),
+    );
+    let panels = render_client_panels(&snapshot.panels);
+    let commands = render_commands_json(&snapshot);
+    let history = render_history_json(&snapshot);
     let save_slots = render_save_slots_json(state)?;
     let save_slot_details = render_save_slot_details_json(state)?;
 
     Ok(format!(
         "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history}}}",
-        json_escape(state.registration.name),
-        json_escape(state.registration.description),
-        json_escape(state.registration.suggested_commands),
-        json_escape(&state.session.current_room),
-        state.session.transcript.len(),
+        json_escape(&snapshot.host),
+        json_escape(&snapshot.description),
+        json_escape(&snapshot.suggested_commands),
+        json_escape(&snapshot.room),
+        snapshot.turns,
         json_escape(&panels),
-        json_escape(&room_card),
-        json_escape(&state.last_response),
+        json_escape(&snapshot.room_card),
+        json_escape(&snapshot.last_response),
         json_escape(&display_path(&state.save_path)),
         json_escape(&display_path(&state.transcript_path))
     ))
+}
+
+fn render_client_panels(panels: &MuddleClientPanels) -> String {
+    let mut lines = Vec::new();
+    if !panels.resources.is_empty() {
+        lines.push(format!(
+            "[status] {}",
+            panels
+                .resources
+                .iter()
+                .map(|resource| format!("{}={}", resource.label, resource.value))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        ));
+    }
+    if !panels.inventory.is_empty() {
+        lines.push(format!(
+            "[inventory] {}",
+            panels
+                .inventory
+                .iter()
+                .map(|item| {
+                    if item.detail.is_empty() {
+                        item.label.clone()
+                    } else {
+                        format!("{} ({})", item.label, item.detail)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        ));
+    }
+    if let Some(map) = &panels.map {
+        lines.push(format!("[map] {map}"));
+    }
+    if !panels.objectives.is_empty() {
+        lines.push(format!("[objectives] {}", panels.objectives.join(" | ")));
+    }
+    if !panels.recent_log.is_empty() {
+        lines.push(format!("[recent] {}", panels.recent_log.join(" | ")));
+    }
+    lines.join("\n")
 }
 
 fn render_save_slots_json(state: &MuddleWindowState) -> io::Result<String> {
@@ -846,10 +892,9 @@ fn render_save_slot_details_json(state: &MuddleWindowState) -> io::Result<String
     Ok(format!("[{slots}]"))
 }
 
-fn render_commands_json(state: &MuddleWindowState) -> String {
-    let commands = state
-        .host
-        .command_panel(&state.session.current_room)
+fn render_commands_json(snapshot: &MuddleClientSnapshot) -> String {
+    let commands = snapshot
+        .commands
         .iter()
         .map(|hint| {
             format!(
@@ -863,18 +908,16 @@ fn render_commands_json(state: &MuddleWindowState) -> String {
     format!("[{commands}]")
 }
 
-fn render_history_json(state: &MuddleWindowState) -> String {
-    let turns = state
-        .session
-        .transcript
+fn render_history_json(snapshot: &MuddleClientSnapshot) -> String {
+    let turns = snapshot
+        .history
         .iter()
-        .enumerate()
-        .map(|(index, turn)| {
+        .map(|turn| {
             format!(
                 "{{\"turn\":{},\"room\":\"{}\",\"command\":\"{}\",\"response\":\"{}\"}}",
-                index + 1,
-                json_escape(&turn.room_id),
-                json_escape(&turn.command.normalized()),
+                turn.turn,
+                json_escape(&turn.room),
+                json_escape(&turn.command),
                 json_escape(&turn.response)
             )
         })
@@ -1067,6 +1110,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <pre id="response" class="response"></pre>
       <h2>History</h2>
       <p><a id="transcript-link" class="muted" href="/transcript" target="_blank" rel="noreferrer">Open full transcript</a></p>
+      <input id="history-filter" autocomplete="off" placeholder="filter history by command, room, or response">
+      <p id="history-filter-summary" class="muted"></p>
       <ol id="history" class="history"></ol>
       <form id="command-form">
         <input id="command" autocomplete="off" autofocus placeholder="type a command, e.g. look">
@@ -1082,6 +1127,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     let commandDraft = '';
     let currentState = null;
     let currentSlotDetails = [];
+    let currentHistory = [];
 
     async function requestJson(path, options = {}) {
       try {
@@ -1191,7 +1237,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('card').textContent = state.room_card;
       document.getElementById('response').textContent = state.last_response;
       renderCommandButtons(state.commands || []);
-      renderHistory(state.history || []);
+      currentHistory = state.history || [];
+      renderHistory(currentHistory);
       currentSlotDetails = state.save_slot_details || [];
       renderSaveSlots(currentSlotDetails);
       renderPersistenceActions(state);
@@ -1432,8 +1479,13 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 
     function renderHistory(history) {
       const container = document.getElementById('history');
+      const filter = document.getElementById('history-filter').value.trim().toLowerCase();
+      const filteredHistory = filter
+        ? history.filter(turn => historyTurnMatchesFilter(turn, filter))
+        : history;
       container.innerHTML = '';
-      for (const turn of history.slice().reverse()) {
+      updateHistoryFilterSummary(filteredHistory.length, history.length, filter);
+      for (const turn of filteredHistory.slice().reverse()) {
         const item = document.createElement('li');
         const title = document.createElement('strong');
         title.textContent = `Turn ${turn.turn} · ${turn.room} · ${turn.command}`;
@@ -1447,7 +1499,29 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         item.className = 'muted';
         item.textContent = 'No commands yet.';
         container.appendChild(item);
+      } else if (!filteredHistory.length) {
+        const item = document.createElement('li');
+        item.className = 'muted';
+        item.textContent = 'No history entries match the current filter.';
+        container.appendChild(item);
       }
+    }
+
+    function historyTurnMatchesFilter(turn, filter) {
+      return String(turn.turn).includes(filter)
+        || turn.room.toLowerCase().includes(filter)
+        || turn.command.toLowerCase().includes(filter)
+        || turn.response.toLowerCase().includes(filter);
+    }
+
+    function updateHistoryFilterSummary(showing, total, filter) {
+      document.getElementById('history-filter-summary').textContent = filter
+        ? `Showing ${showing} of ${total} history entries.`
+        : `${total} history entries.`;
+    }
+
+    function refreshHistoryFilter() {
+      renderHistory(currentHistory);
     }
 
     async function sendCommand(command) {
@@ -1573,6 +1647,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 
     document.getElementById('change-host').addEventListener('click', showChooser);
     document.getElementById('host-filter').addEventListener('input', renderHosts);
+    document.getElementById('history-filter').addEventListener('input', refreshHistoryFilter);
     document.getElementById('reset-host').addEventListener('click', resetHost);
     document.getElementById('save-now').addEventListener('click', saveNow);
     document.getElementById('load-save').addEventListener('click', loadSave);
@@ -1829,6 +1904,15 @@ mod tests {
         assert!(WINDOW_HTML.contains("sortSlotDetails"));
         assert!(WINDOW_HTML.contains("right.modified_unix - left.modified_unix"));
         assert!(WINDOW_HTML.contains("right.bytes - left.bytes"));
+    }
+
+    #[test]
+    fn window_html_filters_turn_history() {
+        assert!(WINDOW_HTML.contains("history-filter"));
+        assert!(WINDOW_HTML.contains("history-filter-summary"));
+        assert!(WINDOW_HTML.contains("historyTurnMatchesFilter"));
+        assert!(WINDOW_HTML.contains("Showing ${showing} of ${total} history entries."));
+        assert!(WINDOW_HTML.contains("No history entries match the current filter."));
     }
 
     #[test]

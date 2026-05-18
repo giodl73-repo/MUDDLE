@@ -5,6 +5,7 @@ members = [
     "crates/muddle-core",
     "crates/muddle-cli",
     "crates/muddle-mock-sim",
+    "crates/muddle-macroquad",
     "crates/muddle-window",
 ]
 resolver = "2"
