@@ -44,6 +44,7 @@ async fn main() {
             options.save_path,
             options.transcript_path,
             options.import_path,
+            options.export_path,
         ),
         None => MuddleMacroquadState::with_chooser_and_paths(
             registrations,
@@ -51,6 +52,7 @@ async fn main() {
             options.save_path,
             options.transcript_path,
             options.import_path,
+            options.export_path,
         ),
     }
     .expect("MUDDLE macroquad state starts");
@@ -128,7 +130,11 @@ async fn main() {
             }
         }
         if is_key_pressed(KeyCode::F11) {
-            if let Err(error) = state.export_selected_slot_text() {
+            let result = match state.mode() {
+                MuddleMacroquadMode::SaveSlots => state.export_selected_slot_text_now(),
+                _ => state.export_save_text_now(),
+            };
+            if let Err(error) = result {
                 eprintln!("{error}");
             }
         }

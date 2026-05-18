@@ -24,6 +24,7 @@ pub struct MuddleMacroquadRunOptions {
     pub save_path: Option<PathBuf>,
     pub transcript_path: Option<PathBuf>,
     pub import_path: Option<PathBuf>,
+    pub export_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +93,7 @@ pub struct MuddleMacroquadState {
     save_path: Option<PathBuf>,
     transcript_path: Option<PathBuf>,
     import_path: Option<PathBuf>,
+    export_path: Option<PathBuf>,
 }
 
 impl Default for MuddleMacroquadRunOptions {
@@ -104,6 +106,7 @@ impl Default for MuddleMacroquadRunOptions {
             save_path: None,
             transcript_path: None,
             import_path: None,
+            export_path: None,
         }
     }
 }
@@ -129,7 +132,7 @@ impl MuddleMacroquadState {
     }
 
     pub fn with_chooser(registrations: Vec<MuddleClientHostRegistration>) -> Result<Self, String> {
-        Self::with_chooser_and_paths(registrations, None, None, None, None)
+        Self::with_chooser_and_paths(registrations, None, None, None, None, None)
     }
 
     pub fn with_chooser_and_paths(
@@ -138,6 +141,7 @@ impl MuddleMacroquadState {
         save_path: Option<PathBuf>,
         transcript_path: Option<PathBuf>,
         import_path: Option<PathBuf>,
+        export_path: Option<PathBuf>,
     ) -> Result<Self, String> {
         let mut state = Self::with_host_and_paths(
             registrations,
@@ -146,6 +150,7 @@ impl MuddleMacroquadState {
             save_path,
             transcript_path,
             import_path,
+            export_path,
         )?;
         state.mode = MuddleMacroquadMode::HostChooser;
         state.last_status = "Choose a host with Up/Down and Enter. Type to filter.".to_string();
@@ -156,7 +161,7 @@ impl MuddleMacroquadState {
         registrations: Vec<MuddleClientHostRegistration>,
         host_name: &str,
     ) -> Result<Self, String> {
-        Self::with_host_and_paths(registrations, host_name, None, None, None, None)
+        Self::with_host_and_paths(registrations, host_name, None, None, None, None, None)
     }
 
     pub fn with_host_and_paths(
@@ -166,6 +171,7 @@ impl MuddleMacroquadState {
         save_path: Option<PathBuf>,
         transcript_path: Option<PathBuf>,
         import_path: Option<PathBuf>,
+        export_path: Option<PathBuf>,
     ) -> Result<Self, String> {
         if registrations.is_empty() {
             return Err("muddle-macroquad requires at least one host registration".to_string());
@@ -197,6 +203,7 @@ impl MuddleMacroquadState {
             save_path,
             transcript_path,
             import_path,
+            export_path,
         })
     }
 
@@ -234,6 +241,10 @@ impl MuddleMacroquadState {
 
     pub fn import_path(&self) -> Option<&PathBuf> {
         self.import_path.as_ref()
+    }
+
+    pub fn export_path(&self) -> Option<&PathBuf> {
+        self.export_path.as_ref()
     }
 
     pub fn turns(&self) -> usize {
@@ -418,6 +429,11 @@ impl MuddleMacroquadState {
         Ok(())
     }
 
+    pub fn export_save_text_now(&mut self) -> io::Result<()> {
+        let exported_save = self.session.save_for_host(self.host.as_ref()).encode();
+        self.write_export_text("current save", &exported_save)
+    }
+
     pub fn save_selected_slot(&mut self) -> io::Result<()> {
         let Some((slot_name, slot_path)) = self.selected_or_typed_slot_path()? else {
             return Ok(());
@@ -497,6 +513,13 @@ impl MuddleMacroquadState {
             exported_save.len()
         );
         Ok(Some(exported_save))
+    }
+
+    pub fn export_selected_slot_text_now(&mut self) -> io::Result<()> {
+        if let Some(exported_save) = self.export_selected_slot_text()? {
+            self.write_export_text("selected slot", &exported_save)?;
+        }
+        Ok(())
     }
 
     pub fn save_slot_details(&self) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
@@ -648,6 +671,21 @@ impl MuddleMacroquadState {
         Ok(true)
     }
 
+    fn write_export_text(&mut self, label: &str, exported_save: &str) -> io::Result<()> {
+        let Some(path) = &self.export_path else {
+            self.last_status =
+                "Start muddle-macroquad with --export before exporting save text.".to_string();
+            return Ok(());
+        };
+        fs::write(path, exported_save)?;
+        self.last_status = format!(
+            "Exported {label} save text to {} ({} bytes).",
+            path.display(),
+            exported_save.len()
+        );
+        Ok(())
+    }
+
     fn host_chooser_lines(&self) -> Vec<String> {
         let mut lines = vec![
             "MUDDLE Macroquad Host Chooser".to_string(),
@@ -743,6 +781,13 @@ impl MuddleMacroquadState {
         lines.push(format!(
             "Import: {}",
             self.import_path
+                .as_ref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<not configured>".to_string())
+        ));
+        lines.push(format!(
+            "Export: {}",
+            self.export_path
                 .as_ref()
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|| "<not configured>".to_string())
@@ -1139,6 +1184,12 @@ pub fn parse_macroquad_run_options(
                         .ok_or_else(|| "`--import` requires a path.".to_string())?,
                 ));
             }
+            "--export" => {
+                options.export_path = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| "`--export` requires a path.".to_string())?,
+                ));
+            }
             _ => {
                 if let Some(value) = arg.strip_prefix("--host=") {
                     if value.is_empty() {
@@ -1165,6 +1216,11 @@ pub fn parse_macroquad_run_options(
                         return Err("`--import` requires a path.".to_string());
                     }
                     options.import_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--export=") {
+                    if value.is_empty() {
+                        return Err("`--export` requires a path.".to_string());
+                    }
+                    options.export_path = Some(PathBuf::from(value));
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1176,7 +1232,7 @@ pub fn parse_macroquad_run_options(
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--list-hosts] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1585,12 +1641,15 @@ mod tests {
             "--save".to_string(),
             "play.muddle".to_string(),
             "--import=portable.muddle".to_string(),
+            "--export".to_string(),
+            "exported.muddle".to_string(),
             "--list-hosts".to_string(),
         ])
         .expect("args parse");
         assert_eq!(options.host_name.as_deref(), Some("banish-pilgrim-loss"));
         assert_eq!(options.save_path, Some(PathBuf::from("play.muddle")));
         assert_eq!(options.import_path, Some(PathBuf::from("portable.muddle")));
+        assert_eq!(options.export_path, Some(PathBuf::from("exported.muddle")));
         assert!(options.list_hosts);
     }
 
@@ -1613,6 +1672,7 @@ mod tests {
             None,
             Some(save_path.clone()),
             Some(transcript_path.clone()),
+            None,
             None,
         )
         .expect("state starts");
@@ -1663,6 +1723,7 @@ mod tests {
             None,
             None,
             Some(import_path.clone()),
+            None,
         )
         .expect("state starts");
         assert_eq!(state.turns(), 0);
@@ -1686,6 +1747,57 @@ mod tests {
     }
 
     #[test]
+    fn macroquad_state_exports_save_text_to_path() {
+        let unique = format!(
+            "muddle-macroquad-export-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time is after epoch")
+                .as_nanos()
+        );
+        let save_path = std::env::temp_dir().join(format!("{unique}.muddle"));
+        let export_path = std::env::temp_dir().join(format!("{unique}.export.muddle"));
+
+        let mut state = MuddleMacroquadState::with_host_and_paths(
+            default_macroquad_hosts(),
+            DEFAULT_HOST,
+            None,
+            Some(save_path.clone()),
+            None,
+            None,
+            Some(export_path.clone()),
+        )
+        .expect("state starts");
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        state.export_save_text_now().expect("current save exports");
+        let exported_current = fs::read_to_string(&export_path).expect("export reads");
+        assert!(exported_current.contains("MUDDLE_SESSION_V1"));
+        assert_eq!(state.export_path(), Some(&export_path));
+
+        state.open_save_slots();
+        for character in "camp".chars() {
+            state.push_char(character);
+        }
+        state.save_selected_slot().expect("slot saves");
+        state
+            .export_selected_slot_text_now()
+            .expect("selected slot exports");
+        let exported_slot = fs::read_to_string(&export_path).expect("slot export reads");
+        assert!(exported_slot.contains("MUDDLE_SESSION_V1"));
+        assert!(state.last_status.contains("Exported selected slot"));
+
+        for slot in state.save_slot_details().expect("slots list") {
+            let _ = fs::remove_file(slot.path);
+        }
+        let _ = fs::remove_file(save_path);
+        let _ = fs::remove_file(export_path);
+    }
+
+    #[test]
     fn macroquad_state_manages_save_slots() {
         let unique = format!(
             "muddle-macroquad-slot-test-{}-{}",
@@ -1702,6 +1814,7 @@ mod tests {
             DEFAULT_HOST,
             None,
             Some(save_path.clone()),
+            None,
             None,
             None,
         )
@@ -1758,6 +1871,7 @@ mod tests {
             DEFAULT_HOST,
             None,
             Some(save_path.clone()),
+            None,
             None,
             None,
         )

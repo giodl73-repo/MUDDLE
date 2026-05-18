@@ -25,7 +25,7 @@ cargo run -p muddle-macroquad
 cargo run -p muddle-macroquad -- --host mock-labyrinth
 cargo run -p muddle-macroquad -- --host banish-pilgrim-loss
 cargo run -p muddle-macroquad -- --host amaze-silverstream
-cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt --import portable.muddle
+cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt --import portable.muddle --export exported.muddle
 ```
 
 If no host is supplied, Macroquad opens a native host chooser. Type to filter by
@@ -33,18 +33,20 @@ host name, category, description, or suggested commands; use Up/Down to move the
 selection and Enter to start. In play mode, Enter submits the typed command,
 Up/Down recalls prior commands, F2 returns to host selection, F5 restarts the
 current host, F6 writes configured `--save` and/or `--transcript` outputs, F7
-reloads the configured `--save` path, F8 opens a native save-slot screen, F12
+reloads the configured `--save` path, F8 opens a native save-slot screen, F11
+exports current command-replay save text to the configured `--export` path, F12
 imports command-replay save text from the configured `--import` path, and Escape
-quits. `--load`, `--save`, `--import`, and `--transcript` use the same
-command-replay save and transcript formats as `muddle-cli` and `muddle-window`.
+quits. `--load`, `--save`, `--import`, `--export`, and `--transcript` use the
+same command-replay save and transcript formats as `muddle-cli` and
+`muddle-window`.
 
 The save-slot screen uses the same sibling-file convention as `muddle-window`
 (`base.slot-name.ext`). Type to filter existing slots or name a new one, use
 Up/Down to select, F6 saves/overwrites the selected or typed slot, F9 cycles
 sorting by name/newest/oldest/largest, Enter/F10 loads it, Delete removes it,
-F11 exports the selected command-replay save text, and Escape returns to play.
-Slot rows show name, byte size, modified timestamp, and resolved path so native
-players can inspect slot details without the browser UI.
+F11 exports the selected command-replay save text to `--export`, and Escape
+returns to play. Slot rows show name, byte size, modified timestamp, and
+resolved path so native players can inspect slot details without the browser UI.
 
 The engine client renders the same snapshot fields as the browser's core play
 surface: active host metadata, room card, resources, inventory, objectives, map,
