@@ -25,15 +25,18 @@ cargo run -p muddle-window -- --host banish-pilgrim-loss --save pilgrim-loss.win
 cargo run -p muddle-window -- --host banish-pilgrim-loss --load pilgrim-loss.window.muddle --save pilgrim-loss.window.muddle --transcript pilgrim-loss.window.txt --open
 ```
 
-The front screen lists every mounted host. Choosing a host starts a fresh local
-session for that host; the in-window **Change host** button returns to the
-chooser. The default `portfolio-showcase` host is a browsable catalog for
-MUDDLE-backed and adjacent systems currently visible in the portfolio: games,
-Knowledge Systems, Design Labs, and infrastructure.
+The front screen lists every mounted host, grouped by registration category, and
+includes a filter box that matches host name, category, description, and
+suggested commands. Choosing a host starts a fresh local session for that host;
+the in-window **Change host** button returns to the chooser. The default
+`portfolio-showcase` host is a browsable catalog for MUDDLE-backed and adjacent
+systems currently visible in the portfolio: games, Knowledge Systems, Design
+Labs, and infrastructure.
 
 Product repos can depend on the `muddle-window` crate and call
-`run_muddle_window_hosts_from_env_args()` with their own `MuddleHost`
-registrations. This mirrors the existing reusable `muddle-cli` runner shape.
+`run_muddle_window_hosts_from_env_args()` with their own categorized
+`MuddleHost` registrations. This mirrors the existing reusable `muddle-cli`
+runner shape.
 The runner accepts `--save`, `--load`, and `--transcript`; saves use the same
 command-replay format as the CLI and include optional host-owned checkpoints
 when the mounted host implements checkpoint export/import. Transcripts use the

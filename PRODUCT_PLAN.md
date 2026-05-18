@@ -23,6 +23,7 @@ escape room without becoming either product's engine.
 | Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
 | Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts and expose a reusable save/load/transcript-capable runner for product-owned hosts. |
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
+| Host chooser scale | The browser host chooser groups registrations by category and filters by host metadata as more product surfaces are mounted. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
 | Browser persistence controls | Players can save immediately or reload the configured save file without restarting the local runner. |
@@ -99,6 +100,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - product-owned `banish-muddle` and `amaze-muddle` binaries
 - CLI fixture play loop with named host selection
 - local browser-backed `muddle-window` client with named host selection
+- grouped/filterable window host chooser metadata
 - reusable `muddle-window` runner for product-owned hosts
 - window save/load/transcript parity with the CLI command-replay persistence model
 - clickable window command buttons from host-provided command hints

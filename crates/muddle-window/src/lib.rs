@@ -12,6 +12,7 @@ use muddle_core::{MuddleCommand, MuddleHost, MuddleSession, MuddleSessionSave};
 #[derive(Clone, Copy)]
 pub struct MuddleWindowHostRegistration {
     pub name: &'static str,
+    pub category: &'static str,
     pub description: &'static str,
     pub suggested_commands: &'static str,
     pub create: fn() -> Box<dyn MuddleHost>,
@@ -452,7 +453,10 @@ fn find_window_host(
 fn print_window_hosts(registrations: &[MuddleWindowHostRegistration]) {
     println!("Available MUDDLE window hosts:");
     for registration in registrations {
-        println!("  {} - {}", registration.name, registration.description);
+        println!(
+            "  {} [{}] - {}",
+            registration.name, registration.category, registration.description
+        );
     }
 }
 
@@ -461,8 +465,9 @@ fn render_hosts_json(registrations: &[MuddleWindowHostRegistration]) -> String {
         .iter()
         .map(|registration| {
             format!(
-                "{{\"name\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\"}}",
+                "{{\"name\":\"{}\",\"category\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\"}}",
                 json_escape(registration.name),
+                json_escape(registration.category),
                 json_escape(registration.description),
                 json_escape(registration.suggested_commands)
             )
@@ -643,6 +648,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     ol.history pre { background: #0f1318; border: 1px solid #263241; border-radius: 8px; padding: .75rem; }
     #chooser { max-width: 56rem; margin: 0 auto; padding: 1rem; }
     #client { display: none; }
+    .category-heading { margin: 1.25rem 0 .35rem; color: #d0e8ff; }
+    .empty-hosts { border: 1px dashed #42566b; border-radius: 8px; padding: 1rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
   </style>
@@ -652,6 +659,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     <section>
       <h1>Choose a MUDDLE host</h1>
       <p class="muted">Pick the game surface to mount in this local window. You can switch later, which starts a fresh session for that host.</p>
+      <input id="host-filter" autocomplete="off" placeholder="filter hosts, e.g. game, banish, knowledge">
       <div id="host-list"></div>
     </section>
   </main>
@@ -686,25 +694,53 @@ const WINDOW_HTML: &str = r#"<!doctype html>
   </main>
   <script>
     let selectedHost = null;
+    let availableHosts = [];
 
     async function loadHosts() {
-      const hosts = await fetch('/hosts').then(r => r.json());
+      availableHosts = await fetch('/hosts').then(r => r.json());
+      renderHosts();
+    }
+
+    function renderHosts() {
+      const filter = document.getElementById('host-filter').value.trim().toLowerCase();
       const list = document.getElementById('host-list');
       list.innerHTML = '';
+      const hosts = availableHosts.filter(host => {
+        const haystack = `${host.name} ${host.category} ${host.description} ${host.suggested}`.toLowerCase();
+        return !filter || haystack.includes(filter);
+      });
+      const groups = new Map();
       for (const host of hosts) {
-        const button = document.createElement('button');
-        button.className = 'host-card';
-        button.type = 'button';
-        const name = document.createElement('strong');
-        name.textContent = host.name;
-        const description = document.createElement('span');
-        description.textContent = host.description;
-        const suggested = document.createElement('span');
-        suggested.className = 'muted';
-        suggested.textContent = `Try: ${host.suggested}`;
-        button.append(name, description, document.createElement('br'), suggested);
-        button.addEventListener('click', () => selectHost(host.name));
-        list.appendChild(button);
+        if (!groups.has(host.category)) groups.set(host.category, []);
+        groups.get(host.category).push(host);
+      }
+      if (!hosts.length) {
+        const empty = document.createElement('p');
+        empty.className = 'muted empty-hosts';
+        empty.textContent = 'No hosts match that filter.';
+        list.appendChild(empty);
+        return;
+      }
+      for (const [category, categoryHosts] of groups) {
+        const heading = document.createElement('h2');
+        heading.className = 'category-heading';
+        heading.textContent = category;
+        list.appendChild(heading);
+        for (const host of categoryHosts) {
+          const button = document.createElement('button');
+          button.className = 'host-card';
+          button.type = 'button';
+          const name = document.createElement('strong');
+          name.textContent = host.name;
+          const description = document.createElement('span');
+          description.textContent = host.description;
+          const suggested = document.createElement('span');
+          suggested.className = 'muted';
+          suggested.textContent = `Try: ${host.suggested}`;
+          button.append(name, description, document.createElement('br'), suggested);
+          button.addEventListener('click', () => selectHost(host.name));
+          list.appendChild(button);
+        }
       }
     }
 
@@ -783,6 +819,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     document.getElementById('change-host').addEventListener('click', showChooser);
+    document.getElementById('host-filter').addEventListener('input', renderHosts);
     document.getElementById('reset-host').addEventListener('click', async () => {
       const state = await fetch('/reset', { method: 'POST' }).then(r => r.json());
       renderState(state);
@@ -861,6 +898,7 @@ mod tests {
     fn registration() -> MuddleWindowHostRegistration {
         MuddleWindowHostRegistration {
             name: "empty",
+            category: "Test",
             description: "Empty host",
             suggested_commands: "`look`.",
             create: || Box::new(EmptyHost),
@@ -900,6 +938,7 @@ mod tests {
     fn renders_registered_hosts_json() {
         let hosts = render_hosts_json(&[registration()]);
         assert!(hosts.contains("\"name\":\"empty\""));
+        assert!(hosts.contains("\"category\":\"Test\""));
     }
 
     #[test]

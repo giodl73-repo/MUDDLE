@@ -22,6 +22,7 @@ fn host_registry() -> Vec<MuddleWindowHostRegistration> {
     vec![
         MuddleWindowHostRegistration {
             name: "portfolio-showcase",
+            category: "Portfolio",
             description: "Portfolio showcase: browse MUDDLE-backed games and adjacent systems.",
             suggested_commands:
                 "`look`, `go games`, `go knowledge`, `go design`, `go infrastructure`.",
@@ -29,6 +30,7 @@ fn host_registry() -> Vec<MuddleWindowHostRegistration> {
         },
         MuddleWindowHostRegistration {
             name: "mock-labyrinth",
+            category: "Fixtures",
             description: "Labyrinth mock sim: BANISH-like resource state plus AMAZE-like locks.",
             suggested_commands:
                 "`look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`.",
@@ -36,6 +38,7 @@ fn host_registry() -> Vec<MuddleWindowHostRegistration> {
         },
         MuddleWindowHostRegistration {
             name: "banish-pilgrim-loss",
+            category: "Games",
             description: "BANISH Pilgrim Loss adapter spike: launcher, campaign brief, and migration trail.",
             suggested_commands:
                 "`look`, `choose resume`, `inspect plan`, `inspect manifest`, `go trail`, `resolve loss`.",
@@ -43,6 +46,7 @@ fn host_registry() -> Vec<MuddleWindowHostRegistration> {
         },
         MuddleWindowHostRegistration {
             name: "amaze-silverstream",
+            category: "Games",
             description: "AMAZE Silverstream adapter spike: clue, signal, hatch, and escape path.",
             suggested_commands:
                 "`look`, `go receiver`, `inspect clue`, `tune signal`, `unlock hatch`, `go hatch`.",

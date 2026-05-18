@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-window` | Reusable local browser-backed window runner, host chooser, and portfolio catalog over the same host/session contracts. |
+| `muddle-window` | Reusable local browser-backed window runner, grouped/filterable host chooser, and portfolio catalog over the same host/session contracts. |
 
 ## UX direction
 
@@ -86,17 +86,19 @@ from a file while still supporting `--save`, `--load`, and `--transcript`.
 The local window client is documented in
 [`docs\window-client.md`](docs/window-client.md). It starts a local HTTP server
 and optionally opens the default browser with `--open`, while still using the
-same host/session contracts as the CLI. Its front screen includes a
-`portfolio-showcase` host for browsing games, Knowledge Systems, Design Labs,
-and infrastructure already visible through MUDDLE. Product repos can reuse the
-same window runner, just as they reuse the CLI runner. The reusable window
-runner supports `--save`, `--load`, and `--transcript` for command-replay
-session persistence with optional host-owned checkpoints, renders host-provided
-command hints as clickable action buttons, shows the full turn history in the
-browser, and exposes `/transcript` for the same transcript text as the CLI. The
-window also has in-session **Save now**, **Reload save**, and **Restart host**
-controls for managing the current session while preserving configured
-save/transcript paths.
+same host/session contracts as the CLI. Its front screen groups registered hosts
+by category and includes a filter box so a growing portfolio can be narrowed by
+game/system name, category, description, or suggested commands. The default
+`portfolio-showcase` host browses games, Knowledge Systems, Design Labs, and
+infrastructure already visible through MUDDLE. Product repos can reuse the same
+window runner, just as they reuse the CLI runner. The reusable window runner
+supports `--save`, `--load`, and `--transcript` for command-replay session
+persistence with optional host-owned checkpoints, renders host-provided command
+hints as clickable action buttons, shows the full turn history in the browser,
+and exposes `/transcript` for the same transcript text as the CLI. The window
+also has in-session **Save now**, **Reload save**, and **Restart host** controls
+for managing the current session while preserving configured save/transcript
+paths.
 
 ## Host extension model
 
