@@ -61,7 +61,9 @@ slot names may use letters, numbers, dash, and underscore. The slot list shows
 each slot's path, byte size, and modified time, and includes a **Copy path**
 button for copying the resolved slot file path. Selecting a slot, or pressing
 **Use slot** in a slot detail row, fills the slot-name field and marks that slot
-as the load/export/delete target. The import/export controls copy
+as the load/export/delete target. Persistence buttons are disabled with tooltips
+when the current runner has no matching `--save`, `--transcript`, or existing
+slot target. The import/export controls copy
 the current command-replay save text into a browser text area and can import
 compatible save text back into the currently mounted host; Ctrl+E exports and
 Ctrl+I imports. **Export slot text** copies the selected slot's command-replay

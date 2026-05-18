@@ -1072,6 +1072,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     let commandRecall = [];
     let commandRecallIndex = 0;
     let commandDraft = '';
+    let currentState = null;
 
     async function requestJson(path, options = {}) {
       try {
@@ -1172,6 +1173,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     function renderState(state) {
+      currentState = state;
       document.title = `MUDDLE - ${state.host}`;
       document.getElementById('host').textContent = `${state.host}: ${state.description}`;
       document.getElementById('suggested').textContent = `Try: ${state.suggested}`;
@@ -1183,6 +1185,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       renderHistory(state.history || []);
       renderSaveSlots(state.save_slot_details || []);
       renderPersistenceActions(state);
+      updatePersistenceControlState(state);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
@@ -1226,6 +1229,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         item.textContent = 'No save slots yet.';
         details.appendChild(item);
         updateSlotSelectionStatus('');
+        updatePersistenceControlState();
         return;
       }
       for (const slot of slotDetails) {
@@ -1273,6 +1277,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('slot-selection').textContent = slotName
         ? `Typed slot: ${slotName}. Save slot will create or overwrite this name.`
         : 'Select a slot to load/export/delete, or type a new name to save.';
+      updatePersistenceControlState();
     }
 
     function selectSaveSlot(slotName) {
@@ -1282,12 +1287,41 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       }
       document.getElementById('save-slot-name').value = slotName;
       updateSlotSelectionStatus(slotName);
+      updatePersistenceControlState();
     }
 
     function updateSlotSelectionStatus(slotName) {
+      if (currentState && !currentState.save_path) {
+        document.getElementById('slot-selection').textContent = 'Save slots require a configured --save path.';
+        return;
+      }
       document.getElementById('slot-selection').textContent = slotName
         ? `Selected slot: ${slotName}. Load, export, or delete will use this slot.`
         : 'Select a slot to load/export/delete, or type a new name to save.';
+    }
+
+    function updatePersistenceControlState(state = currentState) {
+      if (!state) return;
+      const hasSavePath = Boolean(state.save_path);
+      const hasAnyPersistencePath = hasSavePath || Boolean(state.transcript_path);
+      const slotName = currentSlotName();
+      const hasSlotTarget = Boolean(slotName);
+      const hasExistingSlotTarget = [...document.getElementById('save-slot-list').options]
+        .some(option => option.value && option.value === slotName);
+      setButtonDisabled('save-now', !hasAnyPersistencePath, 'Start with --save or --transcript to enable Save now.');
+      setButtonDisabled('load-save', !hasSavePath, 'Start with --save to enable Reload save.');
+      document.getElementById('save-slot-name').disabled = !hasSavePath;
+      document.getElementById('save-slot-list').disabled = !hasSavePath;
+      setButtonDisabled('save-slot', !(hasSavePath && hasSlotTarget), 'Start with --save and enter a slot name.');
+      setButtonDisabled('load-slot', !(hasSavePath && hasExistingSlotTarget), 'Select an existing save slot to load.');
+      setButtonDisabled('export-slot', !(hasSavePath && hasExistingSlotTarget), 'Select an existing save slot to export.');
+      setButtonDisabled('delete-slot', !(hasSavePath && hasExistingSlotTarget), 'Select an existing save slot to delete.');
+    }
+
+    function setButtonDisabled(id, disabled, title) {
+      const button = document.getElementById(id);
+      button.disabled = disabled;
+      button.title = disabled ? title : '';
     }
 
     async function copySlotPath(slot) {
@@ -1391,6 +1425,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function saveNow() {
+      if (document.getElementById('save-now').disabled) return;
       const state = await requestJson('/save', { method: 'POST' });
       renderState(state);
       showWindowStatus(`Saved ${persistenceTargetSummary(state)}.`);
@@ -1398,6 +1433,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function loadSave() {
+      if (document.getElementById('load-save').disabled) return;
       const state = await requestJson('/load-save', { method: 'POST' });
       renderState(state);
       showWindowStatus(`Reloaded save ${state.save_path || 'from configured save path'}.`);
@@ -1405,6 +1441,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function saveSlot() {
+      if (document.getElementById('save-slot').disabled) return;
       const slotName = currentSlotName();
       const state = await requestJson('/save-slot', { method: 'POST', body: slotName });
       renderState(state);
@@ -1413,6 +1450,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function loadSlot() {
+      if (document.getElementById('load-slot').disabled) return;
       const slotName = currentSlotName();
       const state = await requestJson('/load-slot', { method: 'POST', body: slotName });
       renderState(state);
@@ -1421,6 +1459,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function deleteSlot() {
+      if (document.getElementById('delete-slot').disabled) return;
       const slotName = currentSlotName();
       const state = await requestJson('/delete-slot', { method: 'POST', body: slotName });
       renderState(state);
@@ -1429,6 +1468,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function exportSlotText() {
+      if (document.getElementById('export-slot').disabled) return;
       const slotName = currentSlotName();
       const exported = await requestText('/export-slot', { method: 'POST', body: slotName });
       document.getElementById('save-export').value = exported;
@@ -1696,6 +1736,15 @@ mod tests {
         assert!(WINDOW_HTML.contains("selectSaveSlot(list.value)"));
         assert!(WINDOW_HTML.contains("Load, export, or delete will use this slot."));
         assert!(WINDOW_HTML.contains("Save slot will create or overwrite this name."));
+    }
+
+    #[test]
+    fn window_html_disables_unavailable_persistence_controls() {
+        assert!(WINDOW_HTML.contains("updatePersistenceControlState"));
+        assert!(WINDOW_HTML.contains("Start with --save to enable Reload save."));
+        assert!(WINDOW_HTML.contains("Save slots require a configured --save path."));
+        assert!(WINDOW_HTML.contains("Select an existing save slot to load."));
+        assert!(WINDOW_HTML.contains("setButtonDisabled"));
     }
 
     #[test]

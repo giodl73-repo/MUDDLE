@@ -106,14 +106,15 @@ copied from the browser when configured. The window also has in-session
 **Save now**, **Reload save**, named **Save slot**/**Load
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
-save/transcript paths. Persistence actions report browser-visible success
-details for the affected paths, slots, or save-text byte counts. Save slots are
-sibling files derived from the configured
-`--save` path and show their path, size, modified time, and a copy-path action
-in the browser. Selecting a slot, or pressing **Use slot** in its detail row,
-fills the slot-name field so load/export/delete actions clearly target that
-slot. A selected slot can also export its save text into the browser text area
-without loading the slot, while import/export uses the same portable
+save/transcript paths. Unavailable persistence controls are disabled with
+tooltips when no configured save/transcript path or existing slot target exists.
+Persistence actions report browser-visible success details for the affected
+paths, slots, or save-text byte counts. Save slots are sibling files derived
+from the configured `--save` path and show their path, size, modified time, and
+a copy-path action in the browser. Selecting a slot, or pressing **Use slot** in
+its detail row, fills the slot-name field so load/export/delete actions clearly
+target that slot. A selected slot can also export its save text into the browser
+text area without loading the slot, while import/export uses the same portable
 command-replay save text.
 
 ## Host extension model

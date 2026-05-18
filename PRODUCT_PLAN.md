@@ -26,7 +26,7 @@ escape room without becoming either product's engine.
 | Host chooser scale | The browser host chooser groups registrations by category and filters by host metadata as more product surfaces are mounted. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
-| Browser persistence controls | Players can save immediately, reload the configured save file, copy active save/transcript output paths, and see success details for persistence actions without restarting the local runner, including keyboard shortcuts for common actions. |
+| Browser persistence controls | Players can save immediately, reload the configured save file, copy active save/transcript output paths, see disabled states for unavailable actions, and see success details without restarting the local runner, including keyboard shortcuts for common actions. |
 | Browser save slots | Players can save, select, inspect, copy paths/text for, load, and delete named sibling save files from the browser while keeping the configured active `--save` path. |
 | Browser save import/export | Players can copy portable command-replay save text from the browser and import compatible save text back into the mounted host. |
 | Browser request status | Local window request failures are surfaced inside the browser instead of failing silently. |
