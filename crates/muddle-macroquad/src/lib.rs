@@ -22,6 +22,7 @@ pub struct MuddleMacroquadRunOptions {
     pub list_hosts: bool,
     pub visual_smoke: bool,
     pub require_visuals: bool,
+    pub visual_smoke_commands: Vec<String>,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
     pub save_path: Option<PathBuf>,
@@ -128,6 +129,7 @@ impl Default for MuddleMacroquadRunOptions {
             list_hosts: false,
             visual_smoke: false,
             require_visuals: false,
+            visual_smoke_commands: Vec::new(),
             show_help: false,
             load_path: None,
             save_path: None,
@@ -1060,7 +1062,11 @@ pub async fn run_muddle_macroquad_hosts(
     if options.visual_smoke {
         println!(
             "{}",
-            macroquad_visual_smoke(&registrations, options.require_visuals)?
+            macroquad_visual_smoke(
+                &registrations,
+                options.require_visuals,
+                &options.visual_smoke_commands,
+            )?
         );
         return Ok(());
     }
@@ -1410,6 +1416,13 @@ pub fn parse_macroquad_run_options(
             "--list-hosts" => options.list_hosts = true,
             "--visual-smoke" => options.visual_smoke = true,
             "--require-visuals" => options.require_visuals = true,
+            "--visual-smoke-command" => {
+                options.visual_smoke_commands.push(
+                    args.next().ok_or_else(|| {
+                        "`--visual-smoke-command` requires a command.".to_string()
+                    })?,
+                );
+            }
             "--host" => {
                 options.host_name = Some(
                     args.next()
@@ -1477,6 +1490,11 @@ pub fn parse_macroquad_run_options(
                         return Err("`--export` requires a path.".to_string());
                     }
                     options.export_path = Some(PathBuf::from(value));
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-command=") {
+                    if value.is_empty() {
+                        return Err("`--visual-smoke-command` requires a command.".to_string());
+                    }
+                    options.visual_smoke_commands.push(value.to_string());
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1488,7 +1506,7 @@ pub fn parse_macroquad_run_options(
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--visual-smoke-command <command>] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1505,17 +1523,28 @@ pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> St
 pub fn macroquad_visual_smoke(
     registrations: &[MuddleClientHostRegistration],
     require_visuals: bool,
+    commands: &[String],
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
     let mut missing_visual_hosts = Vec::new();
     for registration in registrations {
-        let host = (registration.create)();
-        let session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
+        let mut host = (registration.create)();
+        let mut session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
             format!(
                 "{} failed to start for visual smoke: {error:?}",
                 registration.name
             )
         })?;
+        for command in commands {
+            session
+                .play_turn(host.as_mut(), MuddleCommand::parse(command))
+                .map_err(|error| {
+                    format!(
+                        "{} visual smoke command `{command}` failed: {error:?}",
+                        registration.name
+                    )
+                })?;
+        }
         let snapshot = session.client_snapshot(
             host.as_ref(),
             registration.client_info(),
@@ -1537,6 +1566,16 @@ pub fn macroquad_visual_smoke(
             .iter()
             .filter(|node| node.kind == MuddleVisualNodeKind::Group)
             .count();
+        let frame_count = layout
+            .visual_nodes
+            .iter()
+            .filter(|node| node.sprite_frame.is_some())
+            .count();
+        let animated_count = layout
+            .visual_nodes
+            .iter()
+            .filter(|node| node.sprite_animation.is_some())
+            .count();
         let status = if layout.visual_nodes.is_empty() {
             missing_visual_hosts.push(registration.name);
             "no visual nodes"
@@ -1544,12 +1583,15 @@ pub fn macroquad_visual_smoke(
             "visual nodes ready"
         };
         lines.push(format!(
-            "  {}: {} total (sprites={}, text={}, groups={}) - {}",
+            "  {}: {} total (sprites={}, text={}, groups={}, frames={}, animated={}, turns={}) - {}",
             registration.name,
             layout.visual_nodes.len(),
             sprite_count,
             text_count,
             group_count,
+            frame_count,
+            animated_count,
+            session.transcript.len(),
             status
         ));
     }
@@ -2526,6 +2568,9 @@ mod tests {
             "--list-hosts".to_string(),
             "--visual-smoke".to_string(),
             "--require-visuals".to_string(),
+            "--visual-smoke-command".to_string(),
+            "look".to_string(),
+            "--visual-smoke-command=wait".to_string(),
         ])
         .expect("args parse");
         assert_eq!(options.host_name.as_deref(), Some("banish-pilgrim-loss"));
@@ -2535,6 +2580,7 @@ mod tests {
         assert!(options.list_hosts);
         assert!(options.visual_smoke);
         assert!(options.require_visuals);
+        assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
     }
 
     #[test]
@@ -2548,12 +2594,32 @@ mod tests {
                 create: || Box::new(VisualSmokeTestHost::new()),
             }],
             true,
+            &[],
         )
         .expect("visual smoke succeeds");
 
         assert!(output.contains("visual-host: 2 total"));
         assert!(output.contains("sprites=1"));
         assert!(output.contains("text=1"));
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_replays_commands_before_snapshot() {
+        let output = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            &["advance".to_string()],
+        )
+        .expect("visual smoke succeeds");
+
+        assert!(output.contains("turns=1"));
+        assert!(output.contains("frames=1"));
     }
 
     #[test]
@@ -2567,6 +2633,7 @@ mod tests {
                 create: || Box::new(MuddleMockSimHost::new()),
             }],
             true,
+            &[],
         )
         .expect_err("strict visual smoke fails without nodes");
 
@@ -2575,6 +2642,7 @@ mod tests {
 
     struct VisualSmokeTestHost {
         room: muddle_core::MuddleRoom,
+        advanced: bool,
     }
 
     impl VisualSmokeTestHost {
@@ -2586,6 +2654,7 @@ mod tests {
                     description: "A visual smoke scene.".to_string(),
                     exits: Vec::new(),
                 },
+                advanced: false,
             }
         }
     }
@@ -2604,10 +2673,16 @@ mod tests {
         }
 
         fn visual_nodes(&self, _current_room: &str) -> Vec<MuddleVisualNode> {
+            let hero = MuddleVisualNode::sprite("hero", "Hero", "sprites/hero.png", "Hero")
+                .with_layer(10)
+                .with_rect(1, 1, 1, 1);
+            let hero = if self.advanced {
+                hero.with_frame("ready")
+            } else {
+                hero
+            };
             vec![
-                MuddleVisualNode::sprite("hero", "Hero", "sprites/hero.png", "Hero")
-                    .with_layer(10)
-                    .with_rect(1, 1, 1, 1),
+                hero,
                 MuddleVisualNode::text("caption", "Caption", "Ready")
                     .with_layer(20)
                     .with_rect(1, 2, 2, 1),
@@ -2617,8 +2692,11 @@ mod tests {
         fn handle_command(
             &mut self,
             _room_id: &str,
-            _command: &MuddleCommand,
+            command: &MuddleCommand,
         ) -> Result<muddle_core::MuddleCommandOutcome, muddle_core::MuddleError> {
+            if command.verb == "advance" {
+                self.advanced = true;
+            }
             Ok(muddle_core::MuddleCommandOutcome::stay("Ready."))
         }
     }
