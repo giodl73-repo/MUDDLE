@@ -146,11 +146,12 @@ browsing, F11 exports current save text to the configured `--export` path, F12
 imports command-replay save text from the configured `--import` path, and Escape
 quits. Macroquad renders room cards,
 resource/inventory/objective/map panels, command hints, visible status, turn
-count, recent history, and save-slot status from the shared controls attached to
-the snapshot while leaving product rules in the mounted host. Its renderer now
-builds explicit header, room, panel, command, status, and history regions from
-those controls, and host command hints render as clickable native buttons rather
-than only flat text. The save-slot screen uses the same sibling save-file
+count, recent history, and a native Persistence panel with configured paths and
+F6/F7/F11/F12 availability cues from the shared controls attached to the
+snapshot while leaving product rules in the mounted host. Its renderer now builds
+explicit header, room, panel, command, status, and history regions from those
+controls, and host command hints render as clickable native buttons rather than
+only flat text. The save-slot screen uses the same sibling save-file
 convention as the browser client and supports filter/select, save, load, delete,
 export, slot detail inspection, and name/newest/oldest/largest sorting actions
 from the native loop.

@@ -51,8 +51,10 @@ resolved path so native players can inspect slot details without the browser UI.
 The engine client renders the same snapshot fields as the browser's core play
 surface: active host metadata, room card, resources, inventory, objectives, map,
 recent log, command hints, visible status, turn count, and recent history. It
-also renders native save-slot summary/status controls without owning product
-rules; those remain shared MUDDLE session contracts and host responsibilities.
+also renders a native Persistence panel with configured save, transcript,
+import, and export paths plus availability cues for F6/F7/F11/F12 actions,
+without owning product rules; those remain shared MUDDLE session contracts and
+host responsibilities.
 
 The Macroquad renderer now maps the snapshot's reusable controls into explicit
 game-client regions: header, room, panels, commands, status, and history. Host

@@ -589,7 +589,7 @@ impl MuddleMacroquadState {
     pub fn play_layout(&self) -> Option<MuddleMacroquadPlayLayout> {
         (self.mode == MuddleMacroquadMode::Playing).then(|| {
             let mut layout = snapshot_play_layout(&self.snapshot(), &self.input);
-            layout.panels.push(self.save_slot_region());
+            layout.panels.push(self.persistence_region());
             layout
         })
     }
@@ -768,12 +768,51 @@ impl MuddleMacroquadState {
         lines
     }
 
-    fn save_slot_region(&self) -> MuddleMacroquadTextRegion {
+    fn persistence_region(&self) -> MuddleMacroquadTextRegion {
         let mut lines = Vec::new();
+        lines.push(format!(
+            "F6 save: {}",
+            if self.save_path.is_some() || self.transcript_path.is_some() {
+                "available"
+            } else {
+                "needs --save or --transcript"
+            }
+        ));
+        lines.push(format!(
+            "F7 reload: {}",
+            if self.save_path.is_some() {
+                "available"
+            } else {
+                "needs --save"
+            }
+        ));
+        lines.push(format!(
+            "F11 export: {}",
+            if self.export_path.is_some() {
+                "available"
+            } else {
+                "needs --export"
+            }
+        ));
+        lines.push(format!(
+            "F12 import: {}",
+            if self.import_path.is_some() {
+                "available"
+            } else {
+                "needs --import"
+            }
+        ));
         lines.push("F8 save slots".to_string());
         lines.push(format!(
-            "Base: {}",
+            "Save: {}",
             self.save_path
+                .as_ref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<not configured>".to_string())
+        ));
+        lines.push(format!(
+            "Transcript: {}",
+            self.transcript_path
                 .as_ref()
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|| "<not configured>".to_string())
@@ -811,8 +850,8 @@ impl MuddleMacroquadState {
         }
 
         MuddleMacroquadTextRegion {
-            id: "save-slots".to_string(),
-            label: "Save Slots".to_string(),
+            id: "persistence".to_string(),
+            label: "Persistence".to_string(),
             lines,
         }
     }
@@ -1590,6 +1629,80 @@ mod tests {
             .commands
             .iter()
             .any(|command| command.command == "look"));
+    }
+
+    #[test]
+    fn macroquad_play_layout_exposes_persistence_availability() {
+        let save_path = PathBuf::from("play.muddle");
+        let transcript_path = PathBuf::from("play.txt");
+        let import_path = PathBuf::from("import.muddle");
+        let export_path = PathBuf::from("export.muddle");
+        let state = MuddleMacroquadState::with_host_and_paths(
+            default_macroquad_hosts(),
+            DEFAULT_HOST,
+            None,
+            Some(save_path.clone()),
+            Some(transcript_path.clone()),
+            Some(import_path.clone()),
+            Some(export_path.clone()),
+        )
+        .expect("state starts");
+        let layout = state.play_layout().expect("playing state has layout");
+        let persistence = layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == "persistence")
+            .expect("persistence panel is present");
+
+        assert_eq!(persistence.label, "Persistence");
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F6 save: available"));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F7 reload: available"));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F11 export: available"));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F12 import: available"));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line.contains("play.muddle")));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line.contains("play.txt")));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line.contains("import.muddle")));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line.contains("export.muddle")));
+
+        let state = MuddleMacroquadState::new().expect("state starts");
+        let layout = state.play_layout().expect("playing state has layout");
+        let persistence = layout
+            .panels
+            .iter()
+            .find(|panel| panel.id == "persistence")
+            .expect("persistence panel is present");
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F6 save: needs --save or --transcript"));
+        assert!(persistence
+            .lines
+            .iter()
+            .any(|line| line == "F7 reload: needs --save"));
     }
 
     #[test]
