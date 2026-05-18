@@ -104,10 +104,13 @@ supports `--save`, `--load`, and `--transcript` for command-replay session
 persistence with optional host-owned checkpoints, renders host-provided command
 hints as clickable action buttons, supports Up/Down command recall in the
 command box, shows the full turn history in the browser, and exposes
-`/transcript` for the same transcript text as the CLI. The history view can be
-filtered by turn, room, command, or response text and shows matching/total
-counts for long sessions. The responsive browser layout collapses cleanly on
-narrower displays and keeps the command form sticky during long sessions.
+`/transcript` for the same transcript text as the CLI. `/state` also exposes the
+shared reusable controls array so browser clients can consume the same
+text/image/button/group intent as engine clients while keeping the existing JSON
+fields for compatibility. The history view can be filtered by turn, room,
+command, or response text and shows matching/total counts for long sessions. The
+responsive browser layout collapses cleanly on narrower displays and keeps the
+command form sticky during long sessions.
 Browser-side request failures are shown in-window instead of disappearing into
 the developer console. Keyboard shortcuts cover common
 persistence actions: Ctrl+S saves, Ctrl+R reloads, Ctrl+E exports save text, and
@@ -140,10 +143,11 @@ In play mode, Enter submits commands, Up/Down recalls command history, F2
 returns to host selection, F5 restarts the current host, F6 saves configured
 outputs, F7 reloads the configured save path, and Escape quits. Macroquad renders
 room cards, resource/inventory/objective/map panels, command hints, visible
-status, turn count, and recent history from the shared snapshot while leaving
-product rules in the mounted host. Its renderer now builds explicit header,
-room, panel, command, status, and history regions, and host command hints render
-as clickable native buttons rather than only flat text.
+status, turn count, and recent history from the shared controls attached to the
+snapshot while leaving product rules in the mounted host. Its renderer now builds
+explicit header, room, panel, command, status, and history regions from those
+controls, and host command hints render as clickable native buttons rather than
+only flat text.
 
 ## Host extension model
 

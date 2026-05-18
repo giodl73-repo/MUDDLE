@@ -9,8 +9,9 @@ use std::{
 
 use muddle_cli::{render_transcript, MuddleCliHostInfo};
 use muddle_core::{
-    MuddleClientHostRegistration, MuddleClientInfo, MuddleClientPanels, MuddleClientSnapshot,
-    MuddleCommand, MuddleHost, MuddleSession, MuddleSessionSave,
+    MuddleClientControl, MuddleClientControlKind, MuddleClientHostRegistration, MuddleClientInfo,
+    MuddleClientPanels, MuddleClientSnapshot, MuddleCommand, MuddleHost, MuddleSession,
+    MuddleSessionSave,
 };
 
 pub type MuddleWindowHostRegistration = MuddleClientHostRegistration;
@@ -799,11 +800,12 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
     let panels = render_client_panels(&snapshot.panels);
     let commands = render_commands_json(&snapshot);
     let history = render_history_json(&snapshot);
+    let controls = render_controls_json(&snapshot.controls);
     let save_slots = render_save_slots_json(state)?;
     let save_slot_details = render_save_slot_details_json(state)?;
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history}}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"save_slots\":{save_slots},\"save_slot_details\":{save_slot_details},\"commands\":{commands},\"history\":{history},\"controls\":{controls}}}",
         json_escape(&snapshot.host),
         json_escape(&snapshot.description),
         json_escape(&snapshot.suggested_commands),
@@ -917,6 +919,43 @@ fn render_history_json(snapshot: &MuddleClientSnapshot) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("[{turns}]")
+}
+
+fn render_controls_json(controls: &[MuddleClientControl]) -> String {
+    let controls = controls
+        .iter()
+        .map(render_control_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{controls}]")
+}
+
+fn render_control_json(control: &MuddleClientControl) -> String {
+    let children = render_controls_json(&control.children);
+    let (image_source, image_alt) = control
+        .image
+        .as_ref()
+        .map(|image| (image.source.as_str(), image.alt.as_str()))
+        .unwrap_or(("", ""));
+    format!(
+        "{{\"id\":\"{}\",\"kind\":\"{}\",\"label\":\"{}\",\"text\":\"{}\",\"image_source\":\"{}\",\"image_alt\":\"{}\",\"command\":\"{}\",\"children\":{children}}}",
+        json_escape(&control.id),
+        control_kind_name(control.kind),
+        json_escape(&control.label),
+        json_escape(control.text.as_deref().unwrap_or_default()),
+        json_escape(image_source),
+        json_escape(image_alt),
+        json_escape(control.command.as_deref().unwrap_or_default())
+    )
+}
+
+fn control_kind_name(kind: MuddleClientControlKind) -> &'static str {
+    match kind {
+        MuddleClientControlKind::Text => "text",
+        MuddleClientControlKind::Image => "image",
+        MuddleClientControlKind::Button => "button",
+        MuddleClientControlKind::Group => "group",
+    }
 }
 
 fn render_window_transcript(state: &MuddleWindowState) -> String {
@@ -1773,6 +1812,9 @@ mod tests {
         assert!(rendered.contains("\"command\":\"look\""));
         assert!(rendered.contains("\"description\":\"Show the empty room.\""));
         assert!(rendered.contains("\"history\":[]"));
+        assert!(rendered.contains("\"controls\":["));
+        assert!(rendered.contains("\"kind\":\"button\""));
+        assert!(rendered.contains("\"id\":\"commands\""));
     }
 
     #[test]

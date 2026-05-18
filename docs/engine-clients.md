@@ -43,9 +43,9 @@ recent log, command hints, visible status, turn count, and recent history. It
 does not own browser-only save-slot UX or product rules; those remain shared
 MUDDLE session contracts and host responsibilities.
 
-The Macroquad renderer now maps the snapshot into explicit game-client regions:
-header, room, panels, commands, status, and history. Host command hints render as
-native clickable buttons that submit the same command strings as typed input.
-This keeps "what should be shown" reusable across clients while letting each
-client decide how text, image placeholders, button controls, and layout groups
-are drawn.
+The Macroquad renderer now maps the snapshot's reusable controls into explicit
+game-client regions: header, room, panels, commands, status, and history. Host
+command hints render as native clickable buttons that submit the same command
+strings as typed input. This keeps "what should be shown" reusable across
+clients while letting each client decide how text, image placeholders, button
+controls, and layout groups are drawn.

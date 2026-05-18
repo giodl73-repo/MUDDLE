@@ -4,8 +4,8 @@ use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
 use muddle_cli::{render_transcript, MuddleCliHostInfo};
 use muddle_core::{
-    MuddleClientHostRegistration, MuddleClientSnapshot, MuddleCommand, MuddleHost, MuddleSession,
-    MuddleSessionSave,
+    MuddleClientControl, MuddleClientHostRegistration, MuddleClientSnapshot, MuddleCommand,
+    MuddleHost, MuddleSession, MuddleSessionSave,
 };
 use muddle_mock_sim::MuddleMockSimHost;
 
@@ -719,6 +719,160 @@ pub fn snapshot_play_layout(
     snapshot: &MuddleClientSnapshot,
     input: &str,
 ) -> MuddleMacroquadPlayLayout {
+    let controls = &snapshot.controls;
+    let panels = find_control(controls, "panels")
+        .map(|panel_group| {
+            panel_group
+                .children
+                .iter()
+                .map(control_text_region)
+                .collect::<Vec<_>>()
+        })
+        .filter(|panels| !panels.is_empty())
+        .unwrap_or_else(|| fallback_panel_regions(snapshot));
+
+    MuddleMacroquadPlayLayout {
+        header: control_header_lines(controls, snapshot, input),
+        room: find_control(controls, "room-card")
+            .map(control_text_region)
+            .unwrap_or_else(|| MuddleMacroquadTextRegion {
+                id: "room".to_string(),
+                label: "Room".to_string(),
+                lines: snapshot
+                    .room_card
+                    .lines()
+                    .map(ToString::to_string)
+                    .collect(),
+            }),
+        panels,
+        commands: control_command_buttons(controls, snapshot),
+        status: find_control(controls, "status")
+            .map(|control| {
+                let mut region = control_text_region(control);
+                region.lines.push(format!("Turns: {}", snapshot.turns));
+                region
+            })
+            .unwrap_or_else(|| MuddleMacroquadTextRegion {
+                id: "status".to_string(),
+                label: "Status".to_string(),
+                lines: vec![
+                    snapshot.last_response.clone(),
+                    format!("Turns: {}", snapshot.turns),
+                ],
+            }),
+        history: find_control(controls, "history")
+            .map(control_text_region)
+            .unwrap_or_else(|| fallback_history_region(snapshot)),
+    }
+}
+
+fn find_control<'a>(
+    controls: &'a [MuddleClientControl],
+    id: &str,
+) -> Option<&'a MuddleClientControl> {
+    controls.iter().find_map(|control| {
+        if control.id == id {
+            Some(control)
+        } else {
+            find_control(&control.children, id)
+        }
+    })
+}
+
+fn control_header_lines(
+    controls: &[MuddleClientControl],
+    snapshot: &MuddleClientSnapshot,
+    input: &str,
+) -> Vec<String> {
+    let mut lines = find_control(controls, "header")
+        .map(|control| {
+            control
+                .children
+                .iter()
+                .filter_map(|child| {
+                    child
+                        .text
+                        .as_ref()
+                        .map(|text| format!("{}: {}", child.label, text))
+                })
+                .collect::<Vec<_>>()
+        })
+        .filter(|lines| !lines.is_empty())
+        .unwrap_or_else(|| vec![format!("{} - {}", snapshot.host, snapshot.description)]);
+    lines.push("F2 host | F5 restart | F6 save | F7 reload | Esc quit".to_string());
+    lines.push(format!("Input: {input}"));
+    lines
+}
+
+fn control_text_region(control: &MuddleClientControl) -> MuddleMacroquadTextRegion {
+    let lines = if !control.children.is_empty() {
+        control
+            .children
+            .iter()
+            .flat_map(|child| {
+                if let Some(text) = &child.text {
+                    vec![format!("{}: {}", child.label, text)]
+                } else if let Some(command) = &child.command {
+                    vec![format!("{} -> {}", child.label, command)]
+                } else {
+                    vec![child.label.clone()]
+                }
+            })
+            .collect()
+    } else if let Some(text) = &control.text {
+        text.lines().map(ToString::to_string).collect()
+    } else if let Some(command) = &control.command {
+        vec![command.clone()]
+    } else {
+        vec![control.label.clone()]
+    };
+
+    MuddleMacroquadTextRegion {
+        id: control.id.clone(),
+        label: control.label.clone(),
+        lines,
+    }
+}
+
+fn control_command_buttons(
+    controls: &[MuddleClientControl],
+    snapshot: &MuddleClientSnapshot,
+) -> Vec<MuddleMacroquadCommandControl> {
+    find_control(controls, "commands")
+        .map(|control| {
+            control
+                .children
+                .iter()
+                .filter_map(|child| {
+                    child
+                        .command
+                        .as_ref()
+                        .map(|command| (child.label.clone(), command.clone()))
+                })
+                .enumerate()
+                .map(|(index, (label, command))| MuddleMacroquadCommandControl {
+                    index,
+                    label,
+                    command,
+                })
+                .collect::<Vec<_>>()
+        })
+        .filter(|commands| !commands.is_empty())
+        .unwrap_or_else(|| {
+            snapshot
+                .commands
+                .iter()
+                .enumerate()
+                .map(|(index, hint)| MuddleMacroquadCommandControl {
+                    index,
+                    label: format!("{} - {}", hint.command, hint.description),
+                    command: hint.command.clone(),
+                })
+                .collect()
+        })
+}
+
+fn fallback_panel_regions(snapshot: &MuddleClientSnapshot) -> Vec<MuddleMacroquadTextRegion> {
     let mut panels = Vec::new();
     if !snapshot.panels.resources.is_empty() {
         panels.push(MuddleMacroquadTextRegion {
@@ -765,60 +919,28 @@ pub fn snapshot_play_layout(
             lines: snapshot.panels.recent_log.clone(),
         });
     }
+    panels
+}
 
-    MuddleMacroquadPlayLayout {
-        header: vec![
-            format!("{} - {}", snapshot.host, snapshot.description),
-            "F2 host | F5 restart | F6 save | F7 reload | Esc quit".to_string(),
-            format!("Input: {input}"),
-        ],
-        room: MuddleMacroquadTextRegion {
-            id: "room".to_string(),
-            label: "Room".to_string(),
-            lines: snapshot
-                .room_card
-                .lines()
-                .map(ToString::to_string)
-                .collect(),
-        },
-        panels,
-        commands: snapshot
-            .commands
+fn fallback_history_region(snapshot: &MuddleClientSnapshot) -> MuddleMacroquadTextRegion {
+    MuddleMacroquadTextRegion {
+        id: "history".to_string(),
+        label: "History".to_string(),
+        lines: snapshot
+            .history
             .iter()
-            .enumerate()
-            .map(|(index, hint)| MuddleMacroquadCommandControl {
-                index,
-                label: format!("{} - {}", hint.command, hint.description),
-                command: hint.command.clone(),
+            .rev()
+            .take(8)
+            .map(|turn| {
+                format!(
+                    "{}. {} @ {} -> {}",
+                    turn.turn,
+                    turn.command,
+                    turn.room,
+                    turn.response.lines().next().unwrap_or_default()
+                )
             })
             .collect(),
-        status: MuddleMacroquadTextRegion {
-            id: "status".to_string(),
-            label: "Status".to_string(),
-            lines: vec![
-                snapshot.last_response.clone(),
-                format!("Turns: {}", snapshot.turns),
-            ],
-        },
-        history: MuddleMacroquadTextRegion {
-            id: "history".to_string(),
-            label: "History".to_string(),
-            lines: snapshot
-                .history
-                .iter()
-                .rev()
-                .take(8)
-                .map(|turn| {
-                    format!(
-                        "{}. {} @ {} -> {}",
-                        turn.turn,
-                        turn.command,
-                        turn.room,
-                        turn.response.lines().next().unwrap_or_default()
-                    )
-                })
-                .collect(),
-        },
     }
 }
 
@@ -854,7 +976,7 @@ mod tests {
     fn macroquad_play_layout_exposes_regions_and_commands() {
         let state = MuddleMacroquadState::new().expect("state starts");
         let layout = state.play_layout().expect("playing state has layout");
-        assert_eq!(layout.room.id, "room");
+        assert_eq!(layout.room.id, "room-card");
         assert!(layout
             .panels
             .iter()

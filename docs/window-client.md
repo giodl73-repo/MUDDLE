@@ -48,11 +48,14 @@ typed and clicked commands can be replayed without leaving the current window.
 The browser view also renders the full turn history and links to `/transcript`,
 which returns the same text transcript format used by `muddle-cli`. A
 browser-local history filter matches turn number, room, command, and response
-text, with visible matching/total counts for longer sessions. The layout
-collapses to a single column on narrower browser windows, and the command form
-stays sticky near the bottom of the viewport so long histories do not push input
-out of reach. Failed local HTTP requests render a visible in-window status
-message so local runner failures are not silent.
+text, with visible matching/total counts for longer sessions. The `/state`
+payload includes the shared reusable controls array from `muddle-core` in
+addition to the established compatibility fields, so browser code can migrate
+toward product-neutral text/image/button/group intent without breaking current
+rendering. The layout collapses to a single column on narrower browser windows,
+and the command form stays sticky near the bottom of the viewport so long
+histories do not push input out of reach. Failed local HTTP requests render a
+visible in-window status message so local runner failures are not silent.
 The **Save now** button writes the configured `--save` and/or `--transcript`
 paths immediately; Ctrl+S triggers the same action from the keyboard. The
 **Reload save** button reloads the configured `--save` path without restarting
