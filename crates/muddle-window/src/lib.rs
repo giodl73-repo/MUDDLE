@@ -964,6 +964,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     .empty-hosts { border: 1px dashed #42566b; border-radius: 8px; padding: 1rem; }
     .slot-details { list-style: none; padding-left: 0; }
     .slot-details li { background: #0f1318; border: 1px solid #263241; border-radius: 8px; margin: .5rem 0; padding: .5rem; }
+    .window-status { display: none; background: #3b2630; border: 1px solid #7f4b5a; border-radius: 8px; color: #ffdce5; padding: .75rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
     @media (max-width: 900px) {
@@ -980,6 +981,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     <section>
       <h1>Choose a MUDDLE host</h1>
       <p class="muted">Pick the game surface to mount in this local window. You can switch later, which starts a fresh session for that host.</p>
+      <p id="chooser-status" class="window-status"></p>
       <input id="host-filter" autocomplete="off" placeholder="filter hosts, e.g. game, banish, knowledge">
       <div id="host-list"></div>
     </section>
@@ -987,6 +989,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
   <main id="client">
     <section>
       <h1>MUDDLE Window</h1>
+      <p id="window-status" class="window-status"></p>
       <p id="host" class="muted"></p>
       <p id="suggested"></p>
       <button id="change-host" class="secondary" type="button">Change host</button>
@@ -1031,8 +1034,43 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     let commandRecallIndex = 0;
     let commandDraft = '';
 
+    async function requestJson(path, options = {}) {
+      try {
+        const response = await fetch(path, options);
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const body = await response.json();
+        showWindowStatus('');
+        return body;
+      } catch (error) {
+        showWindowStatus(`Request failed: ${error.message}`);
+        throw error;
+      }
+    }
+
+    async function requestText(path, options = {}) {
+      try {
+        const response = await fetch(path, options);
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const body = await response.text();
+        showWindowStatus('');
+        return body;
+      } catch (error) {
+        showWindowStatus(`Request failed: ${error.message}`);
+        throw error;
+      }
+    }
+
+    function showWindowStatus(message) {
+      for (const id of ['chooser-status', 'window-status']) {
+        const element = document.getElementById(id);
+        if (!element) continue;
+        element.textContent = message;
+        element.style.display = message ? 'block' : 'none';
+      }
+    }
+
     async function loadHosts() {
-      availableHosts = await fetch('/hosts').then(r => r.json());
+      availableHosts = await requestJson('/hosts');
       renderHosts();
     }
 
@@ -1081,7 +1119,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 
     async function selectHost(hostName) {
       selectedHost = hostName;
-      const state = await fetch('/select-host', { method: 'POST', body: hostName }).then(r => r.json());
+      const state = await requestJson('/select-host', { method: 'POST', body: hostName });
       document.getElementById('chooser').style.display = 'none';
       document.getElementById('client').style.display = 'grid';
       renderState(state);
@@ -1191,7 +1229,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 
     async function sendCommand(command) {
       rememberCommand(command);
-      const state = await fetch('/command', { method: 'POST', body: command }).then(r => r.json());
+      const state = await requestJson('/command', { method: 'POST', body: command });
       renderState(state);
       document.getElementById('command').focus();
     }
@@ -1224,42 +1262,42 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('change-host').addEventListener('click', showChooser);
     document.getElementById('host-filter').addEventListener('input', renderHosts);
     document.getElementById('reset-host').addEventListener('click', async () => {
-      const state = await fetch('/reset', { method: 'POST' }).then(r => r.json());
+      const state = await requestJson('/reset', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('save-now').addEventListener('click', async () => {
-      const state = await fetch('/save', { method: 'POST' }).then(r => r.json());
+      const state = await requestJson('/save', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('load-save').addEventListener('click', async () => {
-      const state = await fetch('/load-save', { method: 'POST' }).then(r => r.json());
+      const state = await requestJson('/load-save', { method: 'POST' });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('save-slot').addEventListener('click', async () => {
-      const state = await fetch('/save-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      const state = await requestJson('/save-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('load-slot').addEventListener('click', async () => {
-      const state = await fetch('/load-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      const state = await requestJson('/load-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('delete-slot').addEventListener('click', async () => {
-      const state = await fetch('/delete-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      const state = await requestJson('/delete-slot', { method: 'POST', body: currentSlotName() });
       renderState(state);
       document.getElementById('command').focus();
     });
     document.getElementById('export-save').addEventListener('click', async () => {
-      document.getElementById('save-export').value = await fetch('/export-save').then(r => r.text());
+      document.getElementById('save-export').value = await requestText('/export-save');
       document.getElementById('save-export').focus();
     });
     document.getElementById('import-save').addEventListener('click', async () => {
       const body = document.getElementById('save-export').value;
-      const state = await fetch('/import-save', { method: 'POST', body }).then(r => r.json());
+      const state = await requestJson('/import-save', { method: 'POST', body });
       renderState(state);
       document.getElementById('command').focus();
     });
@@ -1415,6 +1453,14 @@ mod tests {
         assert!(WINDOW_HTML.contains("@media (max-width: 900px)"));
         assert!(WINDOW_HTML.contains("grid-template-columns: 1fr"));
         assert!(WINDOW_HTML.contains("#command-form { position: sticky"));
+    }
+
+    #[test]
+    fn window_html_reports_request_errors() {
+        assert!(WINDOW_HTML.contains("window-status"));
+        assert!(WINDOW_HTML.contains("chooser-status"));
+        assert!(WINDOW_HTML.contains("Request failed:"));
+        assert!(WINDOW_HTML.contains("requestJson"));
     }
 
     #[test]

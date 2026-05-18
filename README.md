@@ -98,8 +98,9 @@ hints as clickable action buttons, supports Up/Down command recall in the
 command box, shows the full turn history in the browser, and exposes
 `/transcript` for the same transcript text as the CLI. The responsive browser
 layout collapses cleanly on narrower displays and keeps the command form sticky
-during long sessions. The window also has in-session **Save now**, **Reload
-save**, named **Save slot**/**Load
+during long sessions. Browser-side request failures are shown in-window instead
+of disappearing into the developer console. The window also has in-session
+**Save now**, **Reload save**, named **Save slot**/**Load
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured

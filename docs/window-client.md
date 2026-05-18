@@ -49,7 +49,8 @@ The browser view also renders the full turn history and links to `/transcript`,
 which returns the same text transcript format used by `muddle-cli`. The layout
 collapses to a single column on narrower browser windows, and the command form
 stays sticky near the bottom of the viewport so long histories do not push input
-out of reach.
+out of reach. Failed local HTTP requests render a visible in-window status
+message so local runner failures are not silent.
 The **Save now** button writes the configured `--save` and/or `--transcript`
 paths immediately. The **Reload save** button reloads the configured `--save`
 path without restarting the local server. The save-slot controls write, load,
