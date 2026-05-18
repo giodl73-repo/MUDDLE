@@ -323,6 +323,16 @@ fn handle_connection(
                 &render_state_json(state)?,
             )
         }
+        ("POST", "/delete-slot") => {
+            let slot_name = request_body(&request).trim();
+            delete_save_slot(state, slot_name)?;
+            write_response(
+                &mut stream,
+                "200 OK",
+                "application/json",
+                &render_state_json(state)?,
+            )
+        }
         ("POST", "/import-save") => {
             let encoded_save = request_body(&request);
             import_state_from_text(state, encoded_save)?;
@@ -457,6 +467,25 @@ fn load_state_from_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::R
         slot_path.display()
     );
     persist_state(state)?;
+    Ok(())
+}
+
+fn delete_save_slot(state: &mut MuddleWindowState, slot_name: &str) -> io::Result<()> {
+    let Some((slot_name, slot_path)) =
+        save_slot_path(&state.save_path, slot_name, &mut state.last_response)
+    else {
+        return Ok(());
+    };
+    if !slot_path.exists() {
+        state.last_response = format!("No save slot found at {}.", slot_path.display());
+        return Ok(());
+    }
+
+    fs::remove_file(&slot_path)?;
+    state.last_response = format!(
+        "Deleted save slot `{slot_name}` from {}.",
+        slot_path.display()
+    );
     Ok(())
 }
 
@@ -907,6 +936,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="save-slot" class="secondary" type="button">Save slot</button>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
+      <button id="delete-slot" class="secondary" type="button">Delete slot</button>
       <h2>Import / export</h2>
       <textarea id="save-export" rows="8" placeholder="exported save text"></textarea>
       <button id="export-save" class="secondary" type="button">Export save text</button>
@@ -1106,6 +1136,11 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     });
     document.getElementById('load-slot').addEventListener('click', async () => {
       const state = await fetch('/load-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
+      renderState(state);
+      document.getElementById('command').focus();
+    });
+    document.getElementById('delete-slot').addEventListener('click', async () => {
+      const state = await fetch('/delete-slot', { method: 'POST', body: currentSlotName() }).then(r => r.json());
       renderState(state);
       document.getElementById('command').focus();
     });
@@ -1374,6 +1409,26 @@ mod tests {
         assert!(normalize_save_slot_name("../outside").is_err());
         assert!(normalize_save_slot_name("two words").is_err());
         assert!(normalize_save_slot_name("").is_err());
+    }
+
+    #[test]
+    fn delete_save_slot_removes_slot_file() {
+        let save_path = temp_file_path("delete-slot.muddle");
+        let slot_path = temp_file_path("delete-slot.slot-before_gate.muddle");
+        let mut state = MuddleWindowState::new(registration(), None, Some(save_path.clone()), None)
+            .expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "Slot saved.");
+        save_state_to_slot(&mut state, "before_gate").expect("slot saves");
+
+        delete_save_slot(&mut state, "before_gate").expect("slot deletes");
+
+        assert!(!slot_path.exists());
+        assert!(list_save_slots(&state).expect("slots list").is_empty());
+        assert!(state.last_response.contains("Deleted save slot"));
+
+        let _ = fs::remove_file(save_path);
     }
 
     #[test]

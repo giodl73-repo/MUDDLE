@@ -97,10 +97,11 @@ persistence with optional host-owned checkpoints, renders host-provided command
 hints as clickable action buttons, shows the full turn history in the browser,
 and exposes `/transcript` for the same transcript text as the CLI. The window
 also has in-session **Save now**, **Reload save**, named **Save slot**/**Load
-slot**, save text **Export**/**Import**, and **Restart host** controls for
-managing the current session while preserving configured save/transcript paths.
-Save slots are sibling files derived from the configured `--save` path, while
-import/export uses the same portable command-replay save text.
+slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
+controls for managing the current session while preserving configured
+save/transcript paths. Save slots are sibling files derived from the configured
+`--save` path, while import/export uses the same portable command-replay save
+text.
 
 ## Host extension model
 
