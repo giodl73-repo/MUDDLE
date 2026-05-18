@@ -46,7 +46,7 @@ Current crates:
 | `muddle-banish-spike` | BANISH Pilgrim Loss adapter spike that proves launcher-style mounting before replacing it with BANISH-owned APIs. |
 | `muddle-mock-sim` | In-repo labyrinth mock host that exercises BANISH-like resources and AMAZE-like locks without depending on either repo. |
 | `muddle-cli` | First playable command-line renderer for local adapter proof and transcript review. |
-| `muddle-window` | First local browser-backed window client over the same host/session contracts. |
+| `muddle-window` | First local browser-backed window client with host chooser and portfolio showcase over the same host/session contracts. |
 
 ## UX direction
 
@@ -72,6 +72,7 @@ cargo run -p muddle-cli -- --host banish-pilgrim-loss
 cargo run -p muddle-cli -- --host amaze-silverstream
 cargo run -p muddle-cli -- --host mock-labyrinth --script commands.txt --transcript play.txt
 cargo run -p muddle-window -- --open
+cargo run -p muddle-window -- --host portfolio-showcase --open
 cargo run -p muddle-window -- --host banish-pilgrim-loss --open
 ```
 
@@ -84,7 +85,9 @@ from a file while still supporting `--save`, `--load`, and `--transcript`.
 The local window client is documented in
 [`docs\window-client.md`](docs/window-client.md). It starts a local HTTP server
 and optionally opens the default browser with `--open`, while still using the
-same host/session contracts as the CLI.
+same host/session contracts as the CLI. Its front screen includes a
+`portfolio-showcase` host for browsing the systems already visible through
+MUDDLE.
 
 ## Host extension model
 

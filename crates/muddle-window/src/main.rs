@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
@@ -8,10 +9,13 @@ use std::{
 use muddle_amaze_spike::AmazeSilverstreamHost;
 use muddle_banish_spike::BanishPilgrimLossHost;
 use muddle_cli::{write_play_panels, MuddleCliHostInfo};
-use muddle_core::{MuddleCommand, MuddleHost, MuddleSession};
+use muddle_core::{
+    MuddleCommand, MuddleCommandHint, MuddleCommandOutcome, MuddleError, MuddleExit, MuddleHost,
+    MuddleResource, MuddleRoom, MuddleSession,
+};
 use muddle_mock_sim::MuddleMockSimHost;
 
-const DEFAULT_HOST: &str = "mock-labyrinth";
+const DEFAULT_HOST: &str = "portfolio-showcase";
 const DEFAULT_ADDR: &str = "127.0.0.1:4777";
 
 #[derive(Debug, Clone, Copy)]
@@ -27,6 +31,11 @@ struct WindowState {
     session: MuddleSession,
     info: MuddleCliHostInfo,
     last_response: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PortfolioShowcaseHost {
+    rooms: HashMap<String, MuddleRoom>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,6 +324,13 @@ fn host_registry() -> Vec<WindowHostRegistration> {
     vec![
         WindowHostRegistration {
             name: DEFAULT_HOST,
+            description: "Portfolio showcase: browse MUDDLE-backed games and adjacent systems.",
+            suggested_commands:
+                "`look`, `go banish`, `go amaze`, `go tigris`, `go quest`, `go knowledge`.",
+            create: || Box::new(PortfolioShowcaseHost::new()),
+        },
+        WindowHostRegistration {
+            name: "mock-labyrinth",
             description: "Labyrinth mock sim: BANISH-like resource state plus AMAZE-like locks.",
             suggested_commands:
                 "`look`, `gather ember`, `go antechamber`, `inspect glyphs`, `use ember`, `go vault`.",
@@ -335,6 +351,206 @@ fn host_registry() -> Vec<WindowHostRegistration> {
             create: || Box::new(AmazeSilverstreamHost::new()),
         },
     ]
+}
+
+impl PortfolioShowcaseHost {
+    fn new() -> Self {
+        let rooms = [
+            showcase_room(
+                "portfolio-hub",
+                "Portfolio Hub",
+                "A local front room for the playable surfaces and systems now visible through MUDDLE.",
+                [
+                    ("go banish", "banish-room", "BANISH"),
+                    ("go amaze", "amaze-room", "AMAZE"),
+                    ("go tigris", "tigris-room", "TIGRIS"),
+                    ("go quest", "quest-room", "QUEST"),
+                    ("go knowledge", "knowledge-room", "Knowledge Systems"),
+                    ("go rally", "rally-room", "RALLY"),
+                ],
+            ),
+            showcase_room(
+                "banish-room",
+                "BANISH",
+                "Moving-settlement and world-building simulator work. The current MUDDLE window can launch the Pilgrim Loss adapter demo from the chooser.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go amaze", "amaze-room", "AMAZE"),
+                ],
+            ),
+            showcase_room(
+                "amaze-room",
+                "AMAZE",
+                "Trailer-scale escape-room design and simulation work. The current MUDDLE window can launch the Silverstream adapter demo from the chooser.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go banish", "banish-room", "BANISH"),
+                ],
+            ),
+            showcase_room(
+                "tigris-room",
+                "TIGRIS",
+                "Board-game factory work with a Parliament AI MUDDLE launcher in the product repo. Next window step: mount the product-owned host directly.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go quest", "quest-room", "QUEST"),
+                ],
+            ),
+            showcase_room(
+                "quest-room",
+                "QUEST",
+                "D&D workshop work with reusable dice, AI-DM table play, and a product-owned MUDDLE launcher. Next window step: mount the product-owned host directly.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go tigris", "tigris-room", "TIGRIS"),
+                ],
+            ),
+            showcase_room(
+                "knowledge-room",
+                "Knowledge Systems",
+                "Knowledge systems now include GENES, STORM, CANON, FAUNA, FLORA, RITE, CERES, LUCIA, MAXIM, and PORTO as reusable scenario/context layers.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go rally", "rally-room", "RALLY"),
+                ],
+            ),
+            showcase_room(
+                "rally-room",
+                "RALLY",
+                "Deterministic playtest, simulation, metrics, comparison, and replay substrate for proving game behavior before richer UI polish.",
+                [
+                    ("go hub", "portfolio-hub", "Portfolio Hub"),
+                    ("go knowledge", "knowledge-room", "Knowledge Systems"),
+                ],
+            ),
+        ]
+        .into_iter()
+        .map(|room| (room.id.clone(), room))
+        .collect();
+
+        Self { rooms }
+    }
+}
+
+fn showcase_room(
+    id: &str,
+    title: &str,
+    description: &str,
+    exits: impl IntoIterator<Item = (&'static str, &'static str, &'static str)>,
+) -> MuddleRoom {
+    MuddleRoom {
+        id: id.to_string(),
+        title: title.to_string(),
+        description: description.to_string(),
+        exits: exits
+            .into_iter()
+            .map(|(command, target_room, label)| MuddleExit {
+                command: command.to_string(),
+                target_room: target_room.to_string(),
+                label: label.to_string(),
+            })
+            .collect(),
+    }
+}
+
+impl MuddleHost for PortfolioShowcaseHost {
+    fn start_room(&self) -> &str {
+        "portfolio-hub"
+    }
+
+    fn room(&self, room_id: &str) -> Option<&MuddleRoom> {
+        self.rooms.get(room_id)
+    }
+
+    fn resource_panel(&self) -> Vec<MuddleResource> {
+        vec![
+            MuddleResource {
+                label: "window-hosts".to_string(),
+                value: (host_registry().len() - 1).to_string(),
+            },
+            MuddleResource {
+                label: "showcase-rooms".to_string(),
+                value: self.rooms.len().to_string(),
+            },
+        ]
+    }
+
+    fn map_panel(&self, current_room: &str) -> Option<String> {
+        Some(format!(
+            "{} Hub -- {} BANISH -- {} AMAZE -- {} TIGRIS -- {} QUEST -- {} Knowledge -- {} RALLY",
+            marker(current_room, "portfolio-hub"),
+            marker(current_room, "banish-room"),
+            marker(current_room, "amaze-room"),
+            marker(current_room, "tigris-room"),
+            marker(current_room, "quest-room"),
+            marker(current_room, "knowledge-room"),
+            marker(current_room, "rally-room"),
+        ))
+    }
+
+    fn objective_panel(&self, current_room: &str) -> Vec<String> {
+        match current_room {
+            "portfolio-hub" => vec![
+                "Browse the systems already visible through MUDDLE.".to_string(),
+                "Use Change host to launch playable BANISH or AMAZE adapter demos.".to_string(),
+            ],
+            "banish-room" | "amaze-room" => {
+                vec!["Return to the chooser to launch this playable adapter demo.".to_string()]
+            }
+            _ => vec!["This system is ready for a product-owned MUDDLE host mount.".to_string()],
+        }
+    }
+
+    fn command_panel(&self, current_room: &str) -> Vec<MuddleCommandHint> {
+        let mut commands = vec![MuddleCommandHint {
+            command: "look".to_string(),
+            description: "Show the current showcase card.".to_string(),
+        }];
+        if let Some(room) = self.room(current_room) {
+            commands.extend(room.exits.iter().map(|exit| MuddleCommandHint {
+                command: exit.command.clone(),
+                description: format!("Open {}.", exit.label),
+            }));
+        }
+        commands
+    }
+
+    fn handle_command(
+        &mut self,
+        room_id: &str,
+        command: &MuddleCommand,
+    ) -> Result<MuddleCommandOutcome, MuddleError> {
+        let room = self
+            .room(room_id)
+            .ok_or_else(|| MuddleError::RoomNotFound {
+                room_id: room_id.to_string(),
+            })?;
+
+        if command.verb == "look" {
+            return Ok(MuddleCommandOutcome::stay(room.ascii_card()));
+        }
+
+        let normalized = command.normalized();
+        if let Some(exit) = room.exits.iter().find(|exit| exit.command == normalized) {
+            return Ok(MuddleCommandOutcome::move_to(
+                format!("Opening {}.", exit.label),
+                exit.target_room.clone(),
+            ));
+        }
+
+        Err(MuddleError::UnknownCommand {
+            room_id: room_id.to_string(),
+            command: command.clone(),
+        })
+    }
+}
+
+fn marker(current_room: &str, room_id: &str) -> &'static str {
+    if current_room == room_id {
+        "@"
+    } else {
+        "o"
+    }
 }
 
 impl WindowHostRegistration {
@@ -541,9 +757,29 @@ mod tests {
     #[test]
     fn renders_host_picker_json() {
         let hosts = render_hosts_json();
+        assert!(hosts.contains("\"name\":\"portfolio-showcase\""));
         assert!(hosts.contains("\"name\":\"mock-labyrinth\""));
         assert!(hosts.contains("\"name\":\"banish-pilgrim-loss\""));
         assert!(hosts.contains("\"name\":\"amaze-silverstream\""));
+    }
+
+    #[test]
+    fn registers_showcase_host() {
+        assert!(find_host("portfolio-showcase").is_some());
+    }
+
+    #[test]
+    fn showcase_host_browses_portfolio_rooms() {
+        let mut host = PortfolioShowcaseHost::new();
+        let mut session = MuddleSession::for_host(&host).expect("showcase starts");
+        session
+            .play_turn(&mut host, MuddleCommand::parse("go banish"))
+            .expect("hub links to BANISH");
+        assert_eq!(session.current_room, "banish-room");
+        assert!(host
+            .command_panel(&session.current_room)
+            .iter()
+            .any(|hint| hint.command == "go hub"));
     }
 
     #[test]
