@@ -230,6 +230,12 @@ fn handle_connection(
             "application/json",
             &render_state_json(state)?,
         ),
+        ("GET", "/transcript") => write_response(
+            &mut stream,
+            "200 OK",
+            "text/plain",
+            &render_window_transcript(state),
+        ),
         ("POST", "/select-host") => {
             let host_name = request_body(&request).trim();
             if let Some(registration) = find_window_host(registrations, host_name) {
@@ -414,9 +420,10 @@ fn render_state_json(state: &MuddleWindowState) -> io::Result<String> {
         .map(|room| room.ascii_card())
         .unwrap_or_else(|| format!("Room missing: {}", state.session.current_room));
     let commands = render_commands_json(state);
+    let history = render_history_json(state);
 
     Ok(format!(
-        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"commands\":{commands}}}",
+        "{{\"host\":\"{}\",\"description\":\"{}\",\"suggested\":\"{}\",\"room\":\"{}\",\"turns\":{},\"panels\":\"{}\",\"room_card\":\"{}\",\"last_response\":\"{}\",\"save_path\":\"{}\",\"transcript_path\":\"{}\",\"commands\":{commands},\"history\":{history}}}",
         json_escape(state.registration.name),
         json_escape(state.registration.description),
         json_escape(state.registration.suggested_commands),
@@ -445,6 +452,37 @@ fn render_commands_json(state: &MuddleWindowState) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("[{commands}]")
+}
+
+fn render_history_json(state: &MuddleWindowState) -> String {
+    let turns = state
+        .session
+        .transcript
+        .iter()
+        .enumerate()
+        .map(|(index, turn)| {
+            format!(
+                "{{\"turn\":{},\"room\":\"{}\",\"command\":\"{}\",\"response\":\"{}\"}}",
+                index + 1,
+                json_escape(&turn.room_id),
+                json_escape(&turn.command.normalized()),
+                json_escape(&turn.response)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{turns}]")
+}
+
+fn render_window_transcript(state: &MuddleWindowState) -> String {
+    render_transcript(
+        MuddleCliHostInfo {
+            name: state.registration.name,
+            description: state.registration.description,
+            suggested_commands: state.registration.suggested_commands,
+        },
+        &state.session,
+    )
 }
 
 fn display_path(path: &Option<PathBuf>) -> String {
@@ -537,6 +575,9 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     button.host-card strong { display: block; color: #fff; margin-bottom: .25rem; }
     button.command-button { margin: .35rem .35rem 0 0; background: #244b32; }
     button.command-button span { display: block; color: #c4d2c8; font-size: .8rem; margin-top: .2rem; }
+    ol.history { padding-left: 1.25rem; }
+    ol.history li { margin: .75rem 0; }
+    ol.history pre { background: #0f1318; border: 1px solid #263241; border-radius: 8px; padding: .75rem; }
     #chooser { max-width: 56rem; margin: 0 auto; padding: 1rem; }
     #client { display: none; }
     .muted { color: #9aa7b2; }
@@ -569,6 +610,9 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <div id="command-buttons"></div>
       <h2>Last response</h2>
       <pre id="response" class="response"></pre>
+      <h2>History</h2>
+      <p><a id="transcript-link" class="muted" href="/transcript" target="_blank" rel="noreferrer">Open full transcript</a></p>
+      <ol id="history" class="history"></ol>
       <form id="command-form">
         <input id="command" autocomplete="off" autofocus placeholder="type a command, e.g. look">
         <button type="submit">Send command</button>
@@ -623,6 +667,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       document.getElementById('card').textContent = state.room_card;
       document.getElementById('response').textContent = state.last_response;
       renderCommandButtons(state.commands || []);
+      renderHistory(state.history || []);
       const persistence = [];
       if (state.save_path) persistence.push(`save: ${state.save_path}`);
       if (state.transcript_path) persistence.push(`transcript: ${state.transcript_path}`);
@@ -643,6 +688,26 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         button.append(command, description);
         button.addEventListener('click', () => sendCommand(hint.command));
         container.appendChild(button);
+      }
+    }
+
+    function renderHistory(history) {
+      const container = document.getElementById('history');
+      container.innerHTML = '';
+      for (const turn of history.slice().reverse()) {
+        const item = document.createElement('li');
+        const title = document.createElement('strong');
+        title.textContent = `Turn ${turn.turn} · ${turn.room} · ${turn.command}`;
+        const response = document.createElement('pre');
+        response.textContent = turn.response;
+        item.append(title, response);
+        container.appendChild(item);
+      }
+      if (!history.length) {
+        const item = document.createElement('li');
+        item.className = 'muted';
+        item.textContent = 'No commands yet.';
+        container.appendChild(item);
       }
     }
 
@@ -769,6 +834,27 @@ mod tests {
         assert!(rendered.contains("\"commands\":["));
         assert!(rendered.contains("\"command\":\"look\""));
         assert!(rendered.contains("\"description\":\"Show the empty room.\""));
+        assert!(rendered.contains("\"history\":[]"));
+    }
+
+    #[test]
+    fn renders_history_and_transcript() {
+        let mut state =
+            MuddleWindowState::new(registration(), None, None, None).expect("state starts");
+        state
+            .session
+            .record_turn(MuddleCommand::parse("look"), "First line.\nSecond line.");
+
+        let rendered = render_state_json(&state).expect("state renders");
+        assert!(rendered.contains("\"history\":["));
+        assert!(rendered.contains("\"turn\":1"));
+        assert!(rendered.contains("\"command\":\"look\""));
+        assert!(rendered.contains("First line.\\nSecond line."));
+
+        let transcript = render_window_transcript(&state);
+        assert!(transcript.contains("MUDDLE_TRANSCRIPT_V1"));
+        assert!(transcript.contains("## Turn 1"));
+        assert!(transcript.contains("command: look"));
     }
 
     #[test]

@@ -24,6 +24,7 @@ escape room without becoming either product's engine.
 | Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts and expose a reusable save/load/transcript-capable runner for product-owned hosts. |
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
+| Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -100,6 +101,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - reusable `muddle-window` runner for product-owned hosts
 - window save/load/transcript parity with the CLI command-replay persistence model
 - clickable window command buttons from host-provided command hints
+- in-window full turn history and local `/transcript` endpoint
 - in-window current-host restart/reset control
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 

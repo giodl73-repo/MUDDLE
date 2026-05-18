@@ -91,10 +91,11 @@ same host/session contracts as the CLI. Its front screen includes a
 and infrastructure already visible through MUDDLE. Product repos can reuse the
 same window runner, just as they reuse the CLI runner. The reusable window
 runner supports `--save`, `--load`, and `--transcript` for command-replay
-   session persistence with optional host-owned checkpoints, and renders
-   host-provided command hints as clickable action buttons. The window also has
-   an in-session **Restart host** control for replaying the current host while
-   preserving configured save/transcript paths.
+session persistence with optional host-owned checkpoints, renders host-provided
+command hints as clickable action buttons, shows the full turn history in the
+browser, and exposes `/transcript` for the same transcript text as the CLI. The
+window also has an in-session **Restart host** control for replaying the current
+host while preserving configured save/transcript paths.
 
 ## Host extension model
 

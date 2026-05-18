@@ -41,14 +41,17 @@ same transcript renderer.
 Host-provided command hints render as clickable action buttons, so every
 compatible host can expose its next legal/common commands without custom window
 code.
+The browser view also renders the full turn history and links to `/transcript`,
+which returns the same text transcript format used by `muddle-cli`.
 The **Restart host** button resets the currently selected host to a fresh
 session while preserving any `--save` and `--transcript` output paths.
 
 ## Boundary
 
 MUDDLE owns the local renderer, command entry, room panel display, transcript
-count, and host/session handoff. BANISH, AMAZE, and future products still own
-their content, rules, maps, puzzles, simulations, and win conditions.
+count, turn history, local transcript endpoint, and host/session handoff. BANISH,
+AMAZE, and future products still own their content, rules, maps, puzzles,
+simulations, and win conditions.
 
 ## Validation
 
