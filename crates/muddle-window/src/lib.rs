@@ -1038,6 +1038,12 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <input id="save-slot-name" autocomplete="off" placeholder="slot name, e.g. before-boss">
       <button id="save-slot" class="secondary" type="button">Save slot</button>
       <input id="save-slot-filter" autocomplete="off" placeholder="filter saved slots by name or path">
+      <select id="save-slot-sort">
+        <option value="name">Sort: name</option>
+        <option value="newest">Sort: newest modified</option>
+        <option value="oldest">Sort: oldest modified</option>
+        <option value="largest">Sort: largest first</option>
+      </select>
       <p id="slot-filter-summary" class="muted"></p>
       <select id="save-slot-list"></select>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
@@ -1221,9 +1227,11 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       const details = document.getElementById('save-slot-details');
       const input = document.getElementById('save-slot-name');
       const filter = document.getElementById('save-slot-filter').value.trim().toLowerCase();
+      const sortMode = document.getElementById('save-slot-sort').value;
       const filteredSlotDetails = filter
         ? slotDetails.filter(slot => slotMatchesFilter(slot, filter))
         : slotDetails;
+      const visibleSlotDetails = sortSlotDetails(filteredSlotDetails, sortMode);
       const selected = list.value || input.value.trim();
       list.innerHTML = '';
       details.innerHTML = '';
@@ -1258,7 +1266,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         updatePersistenceControlState();
         return;
       }
-      for (const slot of filteredSlotDetails) {
+      for (const slot of visibleSlotDetails) {
         const option = document.createElement('option');
         option.value = slot.name;
         option.textContent = slot.name;
@@ -1284,7 +1292,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         item.append(title, meta, useSlot, copyPath);
         details.appendChild(item);
       }
-      if (filteredSlotDetails.some(slot => slot.name === selected)) {
+      if (visibleSlotDetails.some(slot => slot.name === selected)) {
         list.value = selected;
         selectSaveSlot(list.value);
       } else if (input.value.trim()) {
@@ -1296,6 +1304,20 @@ const WINDOW_HTML: &str = r#"<!doctype html>
 
     function slotMatchesFilter(slot, filter) {
       return slot.name.toLowerCase().includes(filter) || slot.path.toLowerCase().includes(filter);
+    }
+
+    function sortSlotDetails(slotDetails, sortMode) {
+      const sorted = slotDetails.slice();
+      if (sortMode === 'newest') {
+        sorted.sort((left, right) => right.modified_unix - left.modified_unix || left.name.localeCompare(right.name));
+      } else if (sortMode === 'oldest') {
+        sorted.sort((left, right) => left.modified_unix - right.modified_unix || left.name.localeCompare(right.name));
+      } else if (sortMode === 'largest') {
+        sorted.sort((left, right) => right.bytes - left.bytes || left.name.localeCompare(right.name));
+      } else {
+        sorted.sort((left, right) => left.name.localeCompare(right.name));
+      }
+      return sorted;
     }
 
     function updateSlotFilterSummary(showing, total, filter) {
@@ -1352,6 +1374,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       setButtonDisabled('load-save', !hasSavePath, 'Start with --save to enable Reload save.');
       document.getElementById('save-slot-name').disabled = !hasSavePath;
       document.getElementById('save-slot-filter').disabled = !hasSavePath;
+      document.getElementById('save-slot-sort').disabled = !hasSavePath;
       document.getElementById('save-slot-list').disabled = !hasSavePath;
       setButtonDisabled('save-slot', !(hasSavePath && hasSlotTarget), 'Start with --save and enter a slot name.');
       setButtonDisabled('load-slot', !(hasSavePath && hasExistingSlotTarget), 'Select an existing save slot to load.');
@@ -1556,6 +1579,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('save-slot').addEventListener('click', saveSlot);
     document.getElementById('save-slot-name').addEventListener('input', updateDraftSlotStatus);
     document.getElementById('save-slot-filter').addEventListener('input', refreshSlotFilter);
+    document.getElementById('save-slot-sort').addEventListener('change', refreshSlotFilter);
     document.getElementById('save-slot-list').addEventListener('change', syncSelectedSlotName);
     document.getElementById('load-slot').addEventListener('click', loadSlot);
     document.getElementById('export-slot').addEventListener('click', exportSlotText);
@@ -1796,6 +1820,15 @@ mod tests {
         assert!(WINDOW_HTML.contains("slotMatchesFilter"));
         assert!(WINDOW_HTML.contains("Showing ${showing} of ${total} save slots."));
         assert!(WINDOW_HTML.contains("No save slots match the current filter."));
+    }
+
+    #[test]
+    fn window_html_sorts_save_slots() {
+        assert!(WINDOW_HTML.contains("save-slot-sort"));
+        assert!(WINDOW_HTML.contains("Sort: newest modified"));
+        assert!(WINDOW_HTML.contains("sortSlotDetails"));
+        assert!(WINDOW_HTML.contains("right.modified_unix - left.modified_unix"));
+        assert!(WINDOW_HTML.contains("right.bytes - left.bytes"));
     }
 
     #[test]

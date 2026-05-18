@@ -27,7 +27,7 @@ escape room without becoming either product's engine.
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
 | Window history | The browser window shows the full turn history and exposes a local `/transcript` endpoint using the shared transcript renderer. |
 | Browser persistence controls | Players can save immediately, reload the configured save file, copy active save/transcript output paths, see disabled states for unavailable actions, and see success details without restarting the local runner, including keyboard shortcuts for common actions. |
-| Browser save slots | Players can save, filter, select, inspect, copy paths/text for, load, and delete named sibling save files from the browser while keeping the configured active `--save` path. |
+| Browser save slots | Players can save, filter, sort, select, inspect, copy paths/text for, load, and delete named sibling save files from the browser while keeping the configured active `--save` path. |
 | Browser save import/export | Players can copy portable command-replay save text from the browser and import compatible save text back into the mounted host. |
 | Browser request status | Local window request failures are surfaced inside the browser instead of failing silently. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
@@ -113,7 +113,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - Ctrl+S/Ctrl+R/Ctrl+E/Ctrl+I shortcuts for save, reload, export, and import
 - in-window full turn history and local `/transcript` endpoint
 - in-window save-now, reload-save, copy-path, and action-success status for configured persistence paths
-- in-window named save-slot create/filter/select/inspect/copy-path/export-text/load/delete controls over sibling command-replay save files
+- in-window named save-slot create/filter/sort/select/inspect/copy-path/export-text/load/delete controls over sibling command-replay save files
 - in-window save text import/export over the shared command-replay format
 - in-window current-host restart/reset control
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
