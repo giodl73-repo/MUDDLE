@@ -10,7 +10,7 @@ use muddle_banish_spike::BanishPilgrimLossHost;
 use muddle_cli::{render_transcript, MuddleCliHostInfo};
 use muddle_core::{
     MuddleClientControl, MuddleClientHostRegistration, MuddleClientSnapshot, MuddleCommand,
-    MuddleHost, MuddleSession, MuddleSessionSave,
+    MuddleHost, MuddleSession, MuddleSessionSave, MuddleVisualNode, MuddleVisualNodeKind,
 };
 use muddle_mock_sim::MuddleMockSimHost;
 
@@ -47,6 +47,7 @@ pub enum MuddleMacroquadSaveSlotSort {
 pub struct MuddleMacroquadPlayLayout {
     pub header: Vec<String>,
     pub room: MuddleMacroquadTextRegion,
+    pub visual_nodes: Vec<MuddleMacroquadVisualNode>,
     pub panels: Vec<MuddleMacroquadTextRegion>,
     pub commands: Vec<MuddleMacroquadCommandControl>,
     pub status: MuddleMacroquadTextRegion,
@@ -65,6 +66,22 @@ pub struct MuddleMacroquadCommandControl {
     pub index: usize,
     pub label: String,
     pub command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuddleMacroquadVisualNode {
+    pub id: String,
+    pub kind: MuddleVisualNodeKind,
+    pub label: String,
+    pub text: Option<String>,
+    pub sprite_source: Option<String>,
+    pub sprite_frame: Option<String>,
+    pub sprite_animation: Option<String>,
+    pub layer: i32,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1514,12 +1531,32 @@ fn draw_play_layout(
     let body_height = height - body_top - command_height - status_height - margin * 2.0;
     let left_width = (width - margin * 3.0) * 0.62;
     let right_width = width - margin * 3.0 - left_width;
-    draw_region(
-        Rect::new(margin, body_top, left_width, body_height),
-        &layout.room.label,
-        &layout.room.lines,
-        Color::from_rgba(20, 27, 36, 255),
-    );
+    let left = Rect::new(margin, body_top, left_width, body_height);
+    if layout.visual_nodes.is_empty() {
+        draw_region(
+            left,
+            &layout.room.label,
+            &layout.room.lines,
+            Color::from_rgba(20, 27, 36, 255),
+        );
+    } else {
+        let scene_height = (body_height * 0.46).max(140.0).min(body_height - 120.0);
+        draw_visual_scene(
+            Rect::new(left.x, left.y, left.w, scene_height),
+            &layout.visual_nodes,
+        );
+        draw_region(
+            Rect::new(
+                left.x,
+                left.y + scene_height + 8.0,
+                left.w,
+                left.h - scene_height - 8.0,
+            ),
+            &layout.room.label,
+            &layout.room.lines,
+            Color::from_rgba(20, 27, 36, 255),
+        );
+    }
 
     let right = Rect::new(
         margin * 2.0 + left_width,
@@ -1589,6 +1626,76 @@ fn draw_panel_stack(rect: Rect, panels: &[MuddleMacroquadTextRegion]) {
         if y > rect.y + rect.h {
             break;
         }
+    }
+}
+
+fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
+    draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        Color::from_rgba(12, 18, 28, 255),
+    );
+    draw_rectangle_lines(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        2.0,
+        Color::from_rgba(112, 175, 220, 255),
+    );
+    draw_text("Scene", rect.x + 12.0, rect.y + 24.0, 20.0, WHITE);
+
+    let max_x = nodes
+        .iter()
+        .map(|node| node.x + node.width)
+        .max()
+        .unwrap_or(1)
+        .max(1) as f32;
+    let max_y = nodes
+        .iter()
+        .map(|node| node.y + node.height)
+        .max()
+        .unwrap_or(1)
+        .max(1) as f32;
+    let content = Rect::new(rect.x + 14.0, rect.y + 38.0, rect.w - 28.0, rect.h - 52.0);
+
+    for node in nodes {
+        let x = content.x + (node.x.max(0) as f32 / max_x) * content.w;
+        let y = content.y + (node.y.max(0) as f32 / max_y) * content.h;
+        let w = ((node.width.max(1) as f32 / max_x) * content.w).max(48.0);
+        let h = ((node.height.max(1) as f32 / max_y) * content.h).max(28.0);
+        let color = visual_node_color(node);
+        match node.kind {
+            MuddleVisualNodeKind::Sprite => {
+                draw_rectangle(x, y, w.min(content.w), h.min(content.h), color);
+                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.5, WHITE);
+                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, WHITE);
+                if let Some(frame) = &node.sprite_frame {
+                    draw_text(frame, x + 6.0, y + 36.0, 14.0, LIGHTGRAY);
+                }
+            }
+            MuddleVisualNodeKind::Text => {
+                let text = node.text.as_deref().unwrap_or(&node.label);
+                draw_text(text, x, y + 18.0, 18.0, color);
+            }
+            MuddleVisualNodeKind::Group => {
+                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.0, color);
+                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, color);
+            }
+        }
+    }
+}
+
+fn visual_node_color(node: &MuddleMacroquadVisualNode) -> Color {
+    if node.sprite_animation.is_some() {
+        return Color::from_rgba(206, 156, 72, 255);
+    }
+    match node.kind {
+        MuddleVisualNodeKind::Sprite => Color::from_rgba(54, 104, 153, 230),
+        MuddleVisualNodeKind::Text => SKYBLUE,
+        MuddleVisualNodeKind::Group => Color::from_rgba(126, 143, 168, 230),
     }
 }
 
@@ -1812,6 +1919,7 @@ pub fn snapshot_play_layout(
                     .map(ToString::to_string)
                     .collect(),
             }),
+        visual_nodes: flatten_visual_nodes(&snapshot.visual_nodes),
         panels,
         commands: control_command_buttons(controls, snapshot),
         status: find_control(controls, "status")
@@ -1831,6 +1939,38 @@ pub fn snapshot_play_layout(
         history: find_control(controls, "history")
             .map(control_text_region)
             .unwrap_or_else(|| fallback_history_region(snapshot)),
+    }
+}
+
+fn flatten_visual_nodes(nodes: &[MuddleVisualNode]) -> Vec<MuddleMacroquadVisualNode> {
+    let mut flattened = Vec::new();
+    for node in nodes {
+        push_visual_node(node, &mut flattened);
+    }
+    flattened.sort_by_key(|node| (node.layer, node.id.clone()));
+    flattened
+}
+
+fn push_visual_node(node: &MuddleVisualNode, flattened: &mut Vec<MuddleMacroquadVisualNode>) {
+    flattened.push(MuddleMacroquadVisualNode {
+        id: node.id.clone(),
+        kind: node.kind,
+        label: node.label.clone(),
+        text: node.text.clone(),
+        sprite_source: node.sprite.as_ref().map(|sprite| sprite.source.clone()),
+        sprite_frame: node.sprite.as_ref().and_then(|sprite| sprite.frame.clone()),
+        sprite_animation: node
+            .sprite
+            .as_ref()
+            .and_then(|sprite| sprite.animation.clone()),
+        layer: node.layer,
+        x: node.x,
+        y: node.y,
+        width: node.width,
+        height: node.height,
+    });
+    for child in &node.children {
+        push_visual_node(child, flattened);
     }
 }
 
@@ -2055,6 +2195,52 @@ mod tests {
             .commands
             .iter()
             .any(|command| command.command == "look"));
+    }
+
+    #[test]
+    fn macroquad_play_layout_flattens_visual_nodes_for_scene_rendering() {
+        let snapshot = MuddleClientSnapshot {
+            host: "visual-host".to_string(),
+            description: "Visual host".to_string(),
+            suggested_commands: "look".to_string(),
+            room: "scene".to_string(),
+            turns: 0,
+            room_card: "Scene room".to_string(),
+            last_response: "Ready.".to_string(),
+            panels: muddle_core::MuddleClientPanels {
+                resources: Vec::new(),
+                inventory: Vec::new(),
+                map: None,
+                objectives: Vec::new(),
+                recent_log: Vec::new(),
+            },
+            commands: Vec::new(),
+            history: Vec::new(),
+            visual_nodes: vec![MuddleVisualNode::group(
+                "scene",
+                "Scene",
+                vec![
+                    MuddleVisualNode::sprite("hero", "Hero", "sprites/hero.png", "Hero")
+                        .with_layer(10)
+                        .with_rect(2, 3, 1, 1)
+                        .with_frame("idle"),
+                    MuddleVisualNode::text("caption", "Caption", "Ready")
+                        .with_layer(20)
+                        .with_rect(0, 0, 4, 1),
+                ],
+            )],
+            controls: vec![MuddleClientControl::text("room-card", "Room", "Scene room")],
+        };
+
+        let layout = snapshot_play_layout(&snapshot, "");
+
+        assert!(layout.visual_nodes.iter().any(|node| node.id == "hero"
+            && node.sprite_source.as_deref() == Some("sprites/hero.png")
+            && node.sprite_frame.as_deref() == Some("idle")));
+        assert!(layout
+            .visual_nodes
+            .windows(2)
+            .all(|nodes| nodes[0].layer <= nodes[1].layer));
     }
 
     #[test]
