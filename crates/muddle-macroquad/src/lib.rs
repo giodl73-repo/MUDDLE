@@ -1724,37 +1724,81 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         let y = content.y + (node.y.max(0) as f32 / max_y) * content.h;
         let w = ((node.width.max(1) as f32 / max_x) * content.w).max(48.0);
         let h = ((node.height.max(1) as f32 / max_y) * content.h).max(28.0);
-        let color = visual_node_color(node);
+        let fill_color = visual_node_fill_color(node);
+        let border_color = visual_node_border_color(node);
         match node.kind {
             MuddleVisualNodeKind::Sprite => {
-                draw_rectangle(x, y, w.min(content.w), h.min(content.h), color);
-                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.5, WHITE);
+                draw_rectangle(x, y, w.min(content.w), h.min(content.h), fill_color);
+                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.5, border_color);
                 draw_text(&node.label, x + 6.0, y + 18.0, 16.0, WHITE);
                 if let Some(frame) = &node.sprite_frame {
                     draw_text(frame, x + 6.0, y + 36.0, 14.0, LIGHTGRAY);
                 }
+                if let Some(source) = &node.sprite_source {
+                    draw_text(
+                        &visual_source_name(source),
+                        x + 6.0,
+                        y + h.min(content.h) - 8.0,
+                        12.0,
+                        LIGHTGRAY,
+                    );
+                }
             }
             MuddleVisualNodeKind::Text => {
                 let text = node.text.as_deref().unwrap_or(&node.label);
-                draw_text(text, x, y + 18.0, 18.0, color);
+                draw_text(text, x, y + 18.0, 18.0, fill_color);
             }
             MuddleVisualNodeKind::Group => {
-                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.0, color);
-                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, color);
+                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.0, border_color);
+                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, fill_color);
             }
         }
     }
 }
 
-fn visual_node_color(node: &MuddleMacroquadVisualNode) -> Color {
+fn visual_node_fill_color(node: &MuddleMacroquadVisualNode) -> Color {
     if node.sprite_animation.is_some() {
         return Color::from_rgba(206, 156, 72, 255);
     }
     match node.kind {
-        MuddleVisualNodeKind::Sprite => Color::from_rgba(54, 104, 153, 230),
+        MuddleVisualNodeKind::Sprite => match node.sprite_frame.as_deref() {
+            Some("active") => Color::from_rgba(48, 136, 94, 235),
+            Some("idle") => Color::from_rgba(54, 104, 153, 210),
+            Some("armed") => Color::from_rgba(172, 67, 67, 235),
+            Some("building") => Color::from_rgba(168, 111, 48, 225),
+            Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => {
+                Color::from_rgba(188, 143, 58, 235)
+            }
+            Some("ready") | Some("ordered") | Some("set") | Some("scouted") | Some("resolved")
+            | Some("scored") | Some("frequency") | Some("bearing") => {
+                Color::from_rgba(75, 142, 126, 230)
+            }
+            _ => Color::from_rgba(54, 104, 153, 230),
+        },
         MuddleVisualNodeKind::Text => SKYBLUE,
         MuddleVisualNodeKind::Group => Color::from_rgba(126, 143, 168, 230),
     }
+}
+
+fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
+    if node.sprite_animation.is_some() {
+        return GOLD;
+    }
+    match node.sprite_frame.as_deref() {
+        Some("active") => LIME,
+        Some("armed") => RED,
+        Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => GOLD,
+        Some("ready") | Some("ordered") | Some("set") | Some("scouted") | Some("resolved")
+        | Some("scored") | Some("frequency") | Some("bearing") => GREEN,
+        _ => WHITE,
+    }
+}
+
+fn visual_source_name(source: &str) -> String {
+    Path::new(source)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| source.to_string())
 }
 
 fn draw_command_buttons(
@@ -2299,6 +2343,44 @@ mod tests {
             .visual_nodes
             .windows(2)
             .all(|nodes| nodes[0].layer <= nodes[1].layer));
+    }
+
+    #[test]
+    fn macroquad_visual_node_colors_reflect_frames() {
+        let active = MuddleMacroquadVisualNode {
+            id: "active".to_string(),
+            kind: MuddleVisualNodeKind::Sprite,
+            label: "Active".to_string(),
+            text: None,
+            sprite_source: Some("sprites/active.png".to_string()),
+            sprite_frame: Some("active".to_string()),
+            sprite_animation: None,
+            layer: 0,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        let armed = MuddleMacroquadVisualNode {
+            sprite_frame: Some("armed".to_string()),
+            ..active.clone()
+        };
+        let pulse = MuddleMacroquadVisualNode {
+            sprite_animation: Some("pulse".to_string()),
+            ..active.clone()
+        };
+
+        assert_eq!(visual_node_border_color(&active), LIME);
+        assert_eq!(visual_node_border_color(&armed), RED);
+        assert_eq!(visual_node_border_color(&pulse), GOLD);
+        assert_eq!(
+            visual_source_name("sprites/banish/winter-hearth.png"),
+            "winter-hearth.png"
+        );
+        assert_ne!(
+            visual_node_fill_color(&active),
+            visual_node_fill_color(&armed)
+        );
     }
 
     #[test]
