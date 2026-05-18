@@ -43,7 +43,8 @@ when the mounted host implements checkpoint export/import. Transcripts use the
 same transcript renderer.
 Host-provided command hints render as clickable action buttons, so every
 compatible host can expose its next legal/common commands without custom window
-code.
+code. The command box keeps browser-local command recall with Up/Down keys so
+typed and clicked commands can be replayed without leaving the current window.
 The browser view also renders the full turn history and links to `/transcript`,
 which returns the same text transcript format used by `muddle-cli`.
 The **Save now** button writes the configured `--save` and/or `--transcript`

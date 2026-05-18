@@ -94,9 +94,10 @@ infrastructure already visible through MUDDLE. Product repos can reuse the same
 window runner, just as they reuse the CLI runner. The reusable window runner
 supports `--save`, `--load`, and `--transcript` for command-replay session
 persistence with optional host-owned checkpoints, renders host-provided command
-hints as clickable action buttons, shows the full turn history in the browser,
-and exposes `/transcript` for the same transcript text as the CLI. The window
-also has in-session **Save now**, **Reload save**, named **Save slot**/**Load
+hints as clickable action buttons, supports Up/Down command recall in the
+command box, shows the full turn history in the browser, and exposes
+`/transcript` for the same transcript text as the CLI. The window also has
+in-session **Save now**, **Reload save**, named **Save slot**/**Load
 slot**/**Delete slot**, save text **Export**/**Import**, and **Restart host**
 controls for managing the current session while preserving configured
 save/transcript paths. Save slots are sibling files derived from the configured

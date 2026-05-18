@@ -1018,6 +1018,9 @@ const WINDOW_HTML: &str = r#"<!doctype html>
   <script>
     let selectedHost = null;
     let availableHosts = [];
+    let commandRecall = [];
+    let commandRecallIndex = 0;
+    let commandDraft = '';
 
     async function loadHosts() {
       availableHosts = await fetch('/hosts').then(r => r.json());
@@ -1178,9 +1181,35 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     }
 
     async function sendCommand(command) {
+      rememberCommand(command);
       const state = await fetch('/command', { method: 'POST', body: command }).then(r => r.json());
       renderState(state);
       document.getElementById('command').focus();
+    }
+
+    function rememberCommand(command) {
+      if (!command) return;
+      if (commandRecall[commandRecall.length - 1] !== command) commandRecall.push(command);
+      commandRecallIndex = commandRecall.length;
+      commandDraft = '';
+    }
+
+    function recallCommand(event) {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      if (!commandRecall.length) return;
+      event.preventDefault();
+      const input = event.currentTarget;
+      if (event.key === 'ArrowUp') {
+        if (commandRecallIndex === commandRecall.length) commandDraft = input.value;
+        commandRecallIndex = Math.max(0, commandRecallIndex - 1);
+        input.value = commandRecall[commandRecallIndex];
+      } else {
+        commandRecallIndex = Math.min(commandRecall.length, commandRecallIndex + 1);
+        input.value = commandRecallIndex === commandRecall.length
+          ? commandDraft
+          : commandRecall[commandRecallIndex];
+      }
+      input.setSelectionRange(input.value.length, input.value.length);
     }
 
     document.getElementById('change-host').addEventListener('click', showChooser);
@@ -1234,6 +1263,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       input.value = '';
       await sendCommand(command);
     });
+    document.getElementById('command').addEventListener('keydown', recallCommand);
     loadHosts();
   </script>
 </body>
@@ -1362,6 +1392,13 @@ mod tests {
         assert!(transcript.contains("MUDDLE_TRANSCRIPT_V1"));
         assert!(transcript.contains("## Turn 1"));
         assert!(transcript.contains("command: look"));
+    }
+
+    #[test]
+    fn window_html_supports_command_recall_keys() {
+        assert!(WINDOW_HTML.contains("ArrowUp"));
+        assert!(WINDOW_HTML.contains("ArrowDown"));
+        assert!(WINDOW_HTML.contains("recallCommand"));
     }
 
     #[test]
