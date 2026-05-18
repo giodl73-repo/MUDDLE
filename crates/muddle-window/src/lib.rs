@@ -1041,6 +1041,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
       <button id="load-slot" class="secondary" type="button">Load slot</button>
       <button id="export-slot" class="secondary" type="button">Export slot text</button>
       <button id="delete-slot" class="secondary" type="button">Delete slot</button>
+      <p id="slot-selection" class="muted">Select a slot to load/export/delete, or type a new name to save.</p>
       <ul id="save-slot-details" class="slot-details"></ul>
       <h2>Import / export</h2>
       <textarea id="save-export" rows="8" placeholder="exported save text"></textarea>
@@ -1211,7 +1212,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     function renderSaveSlots(slotDetails) {
       const list = document.getElementById('save-slot-list');
       const details = document.getElementById('save-slot-details');
-      const selected = list.value;
+      const input = document.getElementById('save-slot-name');
+      const selected = list.value || input.value.trim();
       list.innerHTML = '';
       details.innerHTML = '';
       if (!slotDetails.length) {
@@ -1223,6 +1225,7 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         item.className = 'muted';
         item.textContent = 'No save slots yet.';
         details.appendChild(item);
+        updateSlotSelectionStatus('');
         return;
       }
       for (const slot of slotDetails) {
@@ -1238,15 +1241,53 @@ const WINDOW_HTML: &str = r#"<!doctype html>
         meta.className = 'muted';
         const modified = slot.modified_unix ? new Date(slot.modified_unix * 1000).toLocaleString() : 'unknown time';
         meta.textContent = `${slot.bytes} bytes | ${modified} | ${slot.path}`;
+        const useSlot = document.createElement('button');
+        useSlot.className = 'slot-copy';
+        useSlot.type = 'button';
+        useSlot.textContent = 'Use slot';
+        useSlot.addEventListener('click', () => selectSaveSlot(slot.name));
         const copyPath = document.createElement('button');
         copyPath.className = 'slot-copy';
         copyPath.type = 'button';
         copyPath.textContent = 'Copy path';
         copyPath.addEventListener('click', () => copySlotPath(slot));
-        item.append(title, meta, copyPath);
+        item.append(title, meta, useSlot, copyPath);
         details.appendChild(item);
       }
-      if (slotDetails.some(slot => slot.name === selected)) list.value = selected;
+      if (slotDetails.some(slot => slot.name === selected)) {
+        list.value = selected;
+        selectSaveSlot(list.value);
+      } else if (input.value.trim()) {
+        updateDraftSlotStatus();
+      } else {
+        selectSaveSlot(list.value);
+      }
+    }
+
+    function syncSelectedSlotName() {
+      selectSaveSlot(document.getElementById('save-slot-list').value);
+    }
+
+    function updateDraftSlotStatus() {
+      const slotName = document.getElementById('save-slot-name').value.trim();
+      document.getElementById('slot-selection').textContent = slotName
+        ? `Typed slot: ${slotName}. Save slot will create or overwrite this name.`
+        : 'Select a slot to load/export/delete, or type a new name to save.';
+    }
+
+    function selectSaveSlot(slotName) {
+      const list = document.getElementById('save-slot-list');
+      if ([...list.options].some(option => option.value === slotName)) {
+        list.value = slotName;
+      }
+      document.getElementById('save-slot-name').value = slotName;
+      updateSlotSelectionStatus(slotName);
+    }
+
+    function updateSlotSelectionStatus(slotName) {
+      document.getElementById('slot-selection').textContent = slotName
+        ? `Selected slot: ${slotName}. Load, export, or delete will use this slot.`
+        : 'Select a slot to load/export/delete, or type a new name to save.';
     }
 
     async function copySlotPath(slot) {
@@ -1432,6 +1473,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     document.getElementById('save-now').addEventListener('click', saveNow);
     document.getElementById('load-save').addEventListener('click', loadSave);
     document.getElementById('save-slot').addEventListener('click', saveSlot);
+    document.getElementById('save-slot-name').addEventListener('input', updateDraftSlotStatus);
+    document.getElementById('save-slot-list').addEventListener('change', syncSelectedSlotName);
     document.getElementById('load-slot').addEventListener('click', loadSlot);
     document.getElementById('export-slot').addEventListener('click', exportSlotText);
     document.getElementById('delete-slot').addEventListener('click', deleteSlot);
@@ -1642,6 +1685,17 @@ mod tests {
         assert!(WINDOW_HTML.contains("Export slot text"));
         assert!(WINDOW_HTML.contains("exportSlotText"));
         assert!(WINDOW_HTML.contains("/export-slot"));
+    }
+
+    #[test]
+    fn window_html_syncs_selected_save_slot_to_input() {
+        assert!(WINDOW_HTML.contains("slot-selection"));
+        assert!(WINDOW_HTML.contains("Use slot"));
+        assert!(WINDOW_HTML.contains("syncSelectedSlotName"));
+        assert!(WINDOW_HTML.contains("updateDraftSlotStatus"));
+        assert!(WINDOW_HTML.contains("selectSaveSlot(list.value)"));
+        assert!(WINDOW_HTML.contains("Load, export, or delete will use this slot."));
+        assert!(WINDOW_HTML.contains("Save slot will create or overwrite this name."));
     }
 
     #[test]

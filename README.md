@@ -110,8 +110,10 @@ save/transcript paths. Persistence actions report browser-visible success
 details for the affected paths, slots, or save-text byte counts. Save slots are
 sibling files derived from the configured
 `--save` path and show their path, size, modified time, and a copy-path action
-in the browser. A selected slot can also export its save text into the browser
-text area without loading the slot, while import/export uses the same portable
+in the browser. Selecting a slot, or pressing **Use slot** in its detail row,
+fills the slot-name field so load/export/delete actions clearly target that
+slot. A selected slot can also export its save text into the browser text area
+without loading the slot, while import/export uses the same portable
 command-replay save text.
 
 ## Host extension model
