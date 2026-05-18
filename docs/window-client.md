@@ -46,7 +46,10 @@ compatible host can expose its next legal/common commands without custom window
 code. The command box keeps browser-local command recall with Up/Down keys so
 typed and clicked commands can be replayed without leaving the current window.
 The browser view also renders the full turn history and links to `/transcript`,
-which returns the same text transcript format used by `muddle-cli`.
+which returns the same text transcript format used by `muddle-cli`. The layout
+collapses to a single column on narrower browser windows, and the command form
+stays sticky near the bottom of the viewport so long histories do not push input
+out of reach.
 The **Save now** button writes the configured `--save` and/or `--transcript`
 paths immediately. The **Reload save** button reloads the configured `--save`
 path without restarting the local server. The save-slot controls write, load,

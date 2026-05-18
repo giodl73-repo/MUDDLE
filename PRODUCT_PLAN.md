@@ -21,7 +21,7 @@ escape room without becoming either product's engine.
 | BANISH mounting | A BANISH adapter exposes a playable game surface through `MuddleHost`. |
 | AMAZE mounting | An AMAZE adapter exposes escape rooms, clues, locks, and puzzle state through `MuddleHost`. |
 | Shared renderer | `muddle-cli` can select and play either adapter without host-specific renderer code. |
-| Local window client | `muddle-window` can open a browser-backed local window over the same host/session contracts and expose a reusable save/load/transcript-capable runner with command recall for product-owned hosts. |
+| Local window client | `muddle-window` can open a responsive browser-backed local window over the same host/session contracts and expose a reusable save/load/transcript-capable runner with command recall for product-owned hosts. |
 | Portfolio catalog | `muddle-window` can browse systems already visible through MUDDLE before each product has a direct window mount. |
 | Host chooser scale | The browser host chooser groups registrations by category and filters by host metadata as more product surfaces are mounted. |
 | Game-screen panels | Hosts can provide resource/status counts, objectives, command hints, clickable action buttons, and an ASCII map without custom renderer code. |
@@ -107,6 +107,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - window save/load/transcript parity with the CLI command-replay persistence model
 - clickable window command buttons from host-provided command hints
 - Up/Down command recall in the window command box
+- responsive one-column layout and sticky command form for smaller windows
 - in-window full turn history and local `/transcript` endpoint
 - in-window save-now and reload-save controls for configured persistence paths
 - in-window named save-slot create/inspect/load/delete controls over sibling command-replay save files

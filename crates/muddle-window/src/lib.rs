@@ -956,6 +956,8 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     ol.history { padding-left: 1.25rem; }
     ol.history li { margin: .75rem 0; }
     ol.history pre { background: #0f1318; border: 1px solid #263241; border-radius: 8px; padding: .75rem; }
+    #command-form { position: sticky; bottom: 1rem; background: #171d24; border: 1px solid #2d3742; border-radius: 10px; margin-top: 1rem; padding: .75rem; }
+    #command-form button { width: 100%; }
     #chooser { max-width: 56rem; margin: 0 auto; padding: 1rem; }
     #client { display: none; }
     .category-heading { margin: 1.25rem 0 .35rem; color: #d0e8ff; }
@@ -964,6 +966,13 @@ const WINDOW_HTML: &str = r#"<!doctype html>
     .slot-details li { background: #0f1318; border: 1px solid #263241; border-radius: 8px; margin: .5rem 0; padding: .5rem; }
     .muted { color: #9aa7b2; }
     .response { color: #d8f8b7; }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; padding: .5rem; }
+      section { padding: .75rem; }
+      button { width: 100%; }
+      button.command-button { width: 100%; }
+      #chooser { padding: .5rem; }
+    }
   </style>
 </head>
 <body>
@@ -1399,6 +1408,13 @@ mod tests {
         assert!(WINDOW_HTML.contains("ArrowUp"));
         assert!(WINDOW_HTML.contains("ArrowDown"));
         assert!(WINDOW_HTML.contains("recallCommand"));
+    }
+
+    #[test]
+    fn window_html_supports_responsive_sticky_command_form() {
+        assert!(WINDOW_HTML.contains("@media (max-width: 900px)"));
+        assert!(WINDOW_HTML.contains("grid-template-columns: 1fr"));
+        assert!(WINDOW_HTML.contains("#command-form { position: sticky"));
     }
 
     #[test]
