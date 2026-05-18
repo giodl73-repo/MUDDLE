@@ -39,9 +39,11 @@ save and transcript formats as `muddle-cli` and `muddle-window`.
 
 The save-slot screen uses the same sibling-file convention as `muddle-window`
 (`base.slot-name.ext`). Type to filter existing slots or name a new one, use
-Up/Down to select, F6 saves/overwrites the selected or typed slot, Enter/F10
-loads it, Delete removes it, F11 exports the selected command-replay save text,
-and Escape returns to play.
+Up/Down to select, F6 saves/overwrites the selected or typed slot, F9 cycles
+sorting by name/newest/oldest/largest, Enter/F10 loads it, Delete removes it,
+F11 exports the selected command-replay save text, and Escape returns to play.
+Slot rows show name, byte size, modified timestamp, and resolved path so native
+players can inspect slot details without the browser UI.
 
 The engine client renders the same snapshot fields as the browser's core play
 surface: active host metadata, room card, resources, inventory, objectives, map,

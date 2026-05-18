@@ -117,6 +117,9 @@ async fn main() {
         if is_key_pressed(KeyCode::F8) {
             state.open_save_slots();
         }
+        if is_key_pressed(KeyCode::F9) && state.mode() == MuddleMacroquadMode::SaveSlots {
+            state.cycle_slot_sort();
+        }
         if is_key_pressed(KeyCode::F10) {
             if let Err(error) = state.load_selected_slot() {
                 eprintln!("{error}");

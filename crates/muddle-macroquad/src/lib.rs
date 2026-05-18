@@ -32,6 +32,14 @@ pub enum MuddleMacroquadMode {
     SaveSlots,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MuddleMacroquadSaveSlotSort {
+    Name,
+    Newest,
+    Oldest,
+    Largest,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MuddleMacroquadPlayLayout {
     pub header: Vec<String>,
@@ -73,6 +81,7 @@ pub struct MuddleMacroquadState {
     input: String,
     host_filter: String,
     slot_filter: String,
+    slot_sort: MuddleMacroquadSaveSlotSort,
     selected_host_index: usize,
     selected_slot_index: usize,
     command_history: Vec<String>,
@@ -92,6 +101,17 @@ impl Default for MuddleMacroquadRunOptions {
             load_path: None,
             save_path: None,
             transcript_path: None,
+        }
+    }
+}
+
+impl MuddleMacroquadSaveSlotSort {
+    fn label(self) -> &'static str {
+        match self {
+            MuddleMacroquadSaveSlotSort::Name => "name",
+            MuddleMacroquadSaveSlotSort::Newest => "newest",
+            MuddleMacroquadSaveSlotSort::Oldest => "oldest",
+            MuddleMacroquadSaveSlotSort::Largest => "largest",
         }
     }
 }
@@ -161,6 +181,7 @@ impl MuddleMacroquadState {
             input: String::new(),
             host_filter: String::new(),
             slot_filter: String::new(),
+            slot_sort: MuddleMacroquadSaveSlotSort::Name,
             selected_host_index,
             selected_slot_index: 0,
             command_history: Vec::new(),
@@ -186,6 +207,10 @@ impl MuddleMacroquadState {
 
     pub fn slot_filter(&self) -> &str {
         &self.slot_filter
+    }
+
+    pub fn slot_sort(&self) -> MuddleMacroquadSaveSlotSort {
+        self.slot_sort
     }
 
     pub fn active_host_name(&self) -> &str {
@@ -256,6 +281,17 @@ impl MuddleMacroquadState {
 
     pub fn select_previous_slot(&mut self) {
         self.select_relative_slot(-1);
+    }
+
+    pub fn cycle_slot_sort(&mut self) {
+        self.slot_sort = match self.slot_sort {
+            MuddleMacroquadSaveSlotSort::Name => MuddleMacroquadSaveSlotSort::Newest,
+            MuddleMacroquadSaveSlotSort::Newest => MuddleMacroquadSaveSlotSort::Oldest,
+            MuddleMacroquadSaveSlotSort::Oldest => MuddleMacroquadSaveSlotSort::Largest,
+            MuddleMacroquadSaveSlotSort::Largest => MuddleMacroquadSaveSlotSort::Name,
+        };
+        self.selected_slot_index = 0;
+        self.last_status = format!("Save slots sorted by {}.", self.slot_sort.label());
     }
 
     pub fn choose_selected_host(&mut self) -> Result<(), String> {
@@ -596,7 +632,7 @@ impl MuddleMacroquadState {
     fn save_slot_lines(&self) -> Vec<String> {
         let mut lines = vec![
             "MUDDLE Macroquad Save Slots".to_string(),
-            "Type to filter or name a new slot. Up/Down selects. F6 saves. Enter/F10 loads. Delete removes. F11 exports. Esc returns.".to_string(),
+            "Type to filter or name a new slot. Up/Down selects. F6 saves. F9 sorts. Enter/F10 loads. Delete removes. F11 exports. Esc returns.".to_string(),
             format!(
                 "Base save: {}",
                 self.save_path
@@ -605,6 +641,7 @@ impl MuddleMacroquadState {
                     .unwrap_or_else(|| "<not configured>".to_string())
             ),
             format!("Filter/new slot: {}", self.slot_filter),
+            format!("Sort: {}", self.slot_sort.label()),
             String::new(),
         ];
 
@@ -626,9 +663,10 @@ impl MuddleMacroquadState {
                 for (index, slot) in slots.iter().enumerate() {
                     let marker = if Some(index) == selected { ">" } else { " " };
                     lines.push(format!(
-                        "{marker} {} - {} bytes - {}",
+                        "{marker} {} - {} bytes - modified {} - {}",
                         slot.name,
                         slot.bytes,
+                        slot.modified_unix,
                         slot.path.display()
                     ));
                 }
@@ -648,12 +686,19 @@ impl MuddleMacroquadState {
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|| "<not configured>".to_string())
         ));
-        match self.save_slot_details() {
+        match self.sorted_save_slot_details() {
             Ok(slots) if slots.is_empty() => lines.push("Slots: none".to_string()),
             Ok(slots) => {
-                lines.push(format!("Slots: {}", slots.len()));
+                lines.push(format!(
+                    "Slots: {} sorted by {}",
+                    slots.len(),
+                    self.slot_sort.label()
+                ));
                 for slot in slots.iter().take(3) {
-                    lines.push(format!("{} ({} bytes)", slot.name, slot.bytes));
+                    lines.push(format!(
+                        "{} ({} bytes, modified {})",
+                        slot.name, slot.bytes, slot.modified_unix
+                    ));
                 }
             }
             Err(error) => lines.push(format!("Slots unavailable: {error}")),
@@ -754,8 +799,8 @@ impl MuddleMacroquadState {
 
     fn filtered_save_slot_details(&self) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
         let filter = self.slot_filter.trim().to_ascii_lowercase();
-        Ok(self
-            .save_slot_details()?
+        let mut slots = self
+            .sorted_save_slot_details()?
             .into_iter()
             .filter(|slot| {
                 filter.is_empty()
@@ -766,7 +811,15 @@ impl MuddleMacroquadState {
                         .to_ascii_lowercase()
                         .contains(&filter)
             })
-            .collect())
+            .collect::<Vec<_>>();
+        sort_save_slots(&mut slots, self.slot_sort);
+        Ok(slots)
+    }
+
+    fn sorted_save_slot_details(&self) -> io::Result<Vec<MuddleMacroquadSaveSlotDetail>> {
+        let mut slots = self.save_slot_details()?;
+        sort_save_slots(&mut slots, self.slot_sort);
+        Ok(slots)
     }
 
     fn selected_or_typed_slot_path(&mut self) -> io::Result<Option<(String, PathBuf)>> {
@@ -894,6 +947,37 @@ fn list_save_slot_details(
     }
     slots.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(slots)
+}
+
+fn sort_save_slots(slots: &mut [MuddleMacroquadSaveSlotDetail], sort: MuddleMacroquadSaveSlotSort) {
+    match sort {
+        MuddleMacroquadSaveSlotSort::Name => {
+            slots.sort_by(|left, right| left.name.cmp(&right.name));
+        }
+        MuddleMacroquadSaveSlotSort::Newest => {
+            slots.sort_by(|left, right| {
+                right
+                    .modified_unix
+                    .cmp(&left.modified_unix)
+                    .then_with(|| left.name.cmp(&right.name))
+            });
+        }
+        MuddleMacroquadSaveSlotSort::Oldest => {
+            slots.sort_by(|left, right| {
+                left.modified_unix
+                    .cmp(&right.modified_unix)
+                    .then_with(|| left.name.cmp(&right.name))
+            });
+        }
+        MuddleMacroquadSaveSlotSort::Largest => {
+            slots.sort_by(|left, right| {
+                right
+                    .bytes
+                    .cmp(&left.bytes)
+                    .then_with(|| left.name.cmp(&right.name))
+            });
+        }
+    }
 }
 
 pub fn default_macroquad_hosts() -> Vec<MuddleClientHostRegistration> {
@@ -1524,6 +1608,73 @@ mod tests {
         state.delete_selected_slot().expect("slot deletes");
         assert!(state.save_slot_details().expect("slots list").is_empty());
 
+        let _ = fs::remove_file(save_path);
+    }
+
+    #[test]
+    fn macroquad_save_slots_sort_and_show_details() {
+        let unique = format!(
+            "muddle-macroquad-slot-sort-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time is after epoch")
+                .as_nanos()
+        );
+        let save_path = std::env::temp_dir().join(format!("{unique}.muddle"));
+
+        let mut state = MuddleMacroquadState::with_host_and_paths(
+            default_macroquad_hosts(),
+            DEFAULT_HOST,
+            None,
+            Some(save_path.clone()),
+            None,
+        )
+        .expect("state starts");
+
+        state.open_save_slots();
+        for character in "small".chars() {
+            state.push_char(character);
+        }
+        state.save_selected_slot().expect("small slot saves");
+        state.close_save_slots();
+
+        for character in "look".chars() {
+            state.push_char(character);
+        }
+        state.submit_input();
+        state.open_save_slots();
+        for character in "large".chars() {
+            state.push_char(character);
+        }
+        state.save_selected_slot().expect("large slot saves");
+        state.slot_filter.clear();
+
+        let by_name = state.filtered_save_slot_details().expect("slots sort");
+        assert_eq!(
+            by_name
+                .iter()
+                .map(|slot| slot.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["large", "small"]
+        );
+        let lines = state.save_slot_lines();
+        assert!(lines.iter().any(|line| line.contains("Sort: name")));
+        assert!(lines.iter().any(|line| line.contains("modified")));
+
+        state.cycle_slot_sort();
+        state.cycle_slot_sort();
+        state.cycle_slot_sort();
+        assert_eq!(state.slot_sort(), MuddleMacroquadSaveSlotSort::Largest);
+        let by_size = state.filtered_save_slot_details().expect("slots sort");
+        assert_eq!(
+            by_size.first().map(|slot| slot.name.as_str()),
+            Some("large")
+        );
+
+        for slot in state.save_slot_details().expect("slots list") {
+            let _ = fs::remove_file(slot.path);
+        }
         let _ = fs::remove_file(save_path);
     }
 }

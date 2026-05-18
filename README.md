@@ -150,7 +150,8 @@ builds explicit header, room, panel, command, status, and history regions from
 those controls, and host command hints render as clickable native buttons rather
 than only flat text. The save-slot screen uses the same sibling save-file
 convention as the browser client and supports filter/select, save, load, delete,
-and export actions from the native loop.
+export, slot detail inspection, and name/newest/oldest/largest sorting actions
+from the native loop.
 
 ## Host extension model
 
