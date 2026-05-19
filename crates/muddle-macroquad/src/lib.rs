@@ -2251,6 +2251,13 @@ fn visual_node_fill_color(node: &MuddleMacroquadVisualNode) -> Color {
             Some("prism-garden") => Color::from_rgba(70, 150, 92, 235),
             Some("prism-locked") => Color::from_rgba(106, 86, 128, 230),
             Some("prism-solved") => Color::from_rgba(92, 190, 168, 240),
+            Some("tigris-parchment") => Color::from_rgba(174, 132, 74, 235),
+            Some("tigris-ink") => Color::from_rgba(63, 83, 118, 235),
+            Some("tigris-gold") => Color::from_rgba(202, 158, 68, 240),
+            Some("tigris-red") => Color::from_rgba(166, 70, 63, 235),
+            Some("tigris-green") => Color::from_rgba(70, 135, 96, 235),
+            Some("tigris-ledger") => Color::from_rgba(112, 92, 132, 235),
+            Some("tigris-closed") => Color::from_rgba(190, 145, 64, 245),
             Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => {
                 Color::from_rgba(188, 143, 58, 235)
             }
@@ -2279,6 +2286,13 @@ fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
         Some("prism-garden") => GREEN,
         Some("prism-locked") => Color::from_rgba(185, 152, 216, 255),
         Some("prism-solved") => Color::from_rgba(156, 255, 222, 255),
+        Some("tigris-parchment") => Color::from_rgba(235, 196, 128, 255),
+        Some("tigris-ink") => Color::from_rgba(154, 184, 226, 255),
+        Some("tigris-gold") => GOLD,
+        Some("tigris-red") => RED,
+        Some("tigris-green") => GREEN,
+        Some("tigris-ledger") => Color::from_rgba(206, 174, 236, 255),
+        Some("tigris-closed") => GOLD,
         Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => GOLD,
         Some("ready") | Some("ordered") | Some("set") | Some("scouted") | Some("resolved")
         | Some("scored") | Some("frequency") | Some("bearing") => GREEN,
@@ -2955,6 +2969,14 @@ mod tests {
             sprite_frame: Some("armed".to_string()),
             ..active.clone()
         };
+        let tigris_ledger = MuddleMacroquadVisualNode {
+            sprite_frame: Some("tigris-ledger".to_string()),
+            ..active.clone()
+        };
+        let tigris_closed = MuddleMacroquadVisualNode {
+            sprite_frame: Some("tigris-closed".to_string()),
+            ..active.clone()
+        };
         let pulse = MuddleMacroquadVisualNode {
             sprite_animation: Some("pulse".to_string()),
             ..active.clone()
@@ -2962,6 +2984,11 @@ mod tests {
 
         assert_eq!(visual_node_border_color(&active), LIME);
         assert_eq!(visual_node_border_color(&armed), RED);
+        assert_eq!(
+            visual_node_border_color(&tigris_ledger),
+            Color::from_rgba(206, 174, 236, 255)
+        );
+        assert_eq!(visual_node_border_color(&tigris_closed), GOLD);
         assert_eq!(visual_node_border_color(&pulse), GOLD);
         assert_eq!(
             visual_source_name("sprites/banish/winter-hearth.png"),
@@ -2970,6 +2997,10 @@ mod tests {
         assert_ne!(
             visual_node_fill_color(&active),
             visual_node_fill_color(&armed)
+        );
+        assert_ne!(
+            visual_node_fill_color(&tigris_ledger),
+            visual_node_fill_color(&tigris_closed)
         );
     }
 
