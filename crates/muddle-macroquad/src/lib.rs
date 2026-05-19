@@ -23,6 +23,7 @@ pub struct MuddleMacroquadRunOptions {
     pub visual_smoke: bool,
     pub require_visuals: bool,
     pub require_visual_frames: bool,
+    pub visual_smoke_room: Option<String>,
     pub visual_smoke_commands: Vec<String>,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
@@ -131,6 +132,7 @@ impl Default for MuddleMacroquadRunOptions {
             visual_smoke: false,
             require_visuals: false,
             require_visual_frames: false,
+            visual_smoke_room: None,
             visual_smoke_commands: Vec::new(),
             show_help: false,
             load_path: None,
@@ -1068,6 +1070,7 @@ pub async fn run_muddle_macroquad_hosts(
                 &registrations,
                 options.require_visuals,
                 options.require_visual_frames,
+                options.visual_smoke_room.as_deref(),
                 &options.visual_smoke_commands,
             )?
         );
@@ -1420,6 +1423,12 @@ pub fn parse_macroquad_run_options(
             "--visual-smoke" => options.visual_smoke = true,
             "--require-visuals" => options.require_visuals = true,
             "--require-visual-frames" => options.require_visual_frames = true,
+            "--visual-smoke-room" => {
+                options.visual_smoke_room = Some(
+                    args.next()
+                        .ok_or_else(|| "`--visual-smoke-room` requires a room id.".to_string())?,
+                );
+            }
             "--visual-smoke-command" => {
                 options.visual_smoke_commands.push(
                     args.next().ok_or_else(|| {
@@ -1499,6 +1508,11 @@ pub fn parse_macroquad_run_options(
                         return Err("`--visual-smoke-command` requires a command.".to_string());
                     }
                     options.visual_smoke_commands.push(value.to_string());
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-room=") {
+                    if value.is_empty() {
+                        return Err("`--visual-smoke-room` requires a room id.".to_string());
+                    }
+                    options.visual_smoke_room = Some(value.to_string());
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1510,7 +1524,7 @@ pub fn parse_macroquad_run_options(
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--visual-smoke-command <command>] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--visual-smoke-room <room-id>] [--visual-smoke-command <command>] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1528,11 +1542,13 @@ pub fn macroquad_visual_smoke(
     registrations: &[MuddleClientHostRegistration],
     require_visuals: bool,
     require_visual_frames: bool,
+    expected_room: Option<&str>,
     commands: &[String],
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
     let mut missing_visual_hosts = Vec::new();
     let mut missing_frame_hosts = Vec::new();
+    let mut room_mismatch_hosts = Vec::new();
     for registration in registrations {
         let mut host = (registration.create)();
         let mut session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
@@ -1588,13 +1604,22 @@ pub fn macroquad_visual_smoke(
         } else if require_visual_frames && frame_count == 0 {
             missing_frame_hosts.push(registration.name);
             "no visual frames"
+        } else if expected_room.is_some_and(|room| snapshot.room != room) {
+            room_mismatch_hosts.push(format!(
+                "{} expected {} got {}",
+                registration.name,
+                expected_room.unwrap_or_default(),
+                snapshot.room
+            ));
+            "unexpected room"
         } else {
             "visual nodes ready"
         };
         lines.push(format!(
-            "  {}: {} total (sprites={}, text={}, groups={}, frames={}, animated={}, turns={}) - {}",
+            "  {}: {} total (room={}, sprites={}, text={}, groups={}, frames={}, animated={}, turns={}) - {}",
             registration.name,
             layout.visual_nodes.len(),
+            snapshot.room,
             sprite_count,
             text_count,
             group_count,
@@ -1614,6 +1639,12 @@ pub fn macroquad_visual_smoke(
         return Err(format!(
             "visual smoke failed: hosts without visual frames: {}",
             missing_frame_hosts.join(", ")
+        ));
+    }
+    if !room_mismatch_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts in unexpected rooms: {}",
+            room_mismatch_hosts.join(", ")
         ));
     }
     Ok(lines.join("\n"))
@@ -2584,6 +2615,8 @@ mod tests {
             "--visual-smoke".to_string(),
             "--require-visuals".to_string(),
             "--require-visual-frames".to_string(),
+            "--visual-smoke-room".to_string(),
+            "scene".to_string(),
             "--visual-smoke-command".to_string(),
             "look".to_string(),
             "--visual-smoke-command=wait".to_string(),
@@ -2597,6 +2630,7 @@ mod tests {
         assert!(options.visual_smoke);
         assert!(options.require_visuals);
         assert!(options.require_visual_frames);
+        assert_eq!(options.visual_smoke_room.as_deref(), Some("scene"));
         assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
     }
 
@@ -2612,6 +2646,7 @@ mod tests {
             }],
             true,
             false,
+            None,
             &[],
         )
         .expect("visual smoke succeeds");
@@ -2633,12 +2668,33 @@ mod tests {
             }],
             true,
             true,
+            Some("scene"),
             &["advance".to_string()],
         )
         .expect("visual smoke succeeds");
 
         assert!(output.contains("turns=1"));
         assert!(output.contains("frames=1"));
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_can_require_final_room() {
+        let error = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            true,
+            Some("elsewhere"),
+            &["advance".to_string()],
+        )
+        .expect_err("visual smoke fails in unexpected room");
+
+        assert!(error.contains("visual-host expected elsewhere got scene"));
     }
 
     #[test]
@@ -2653,6 +2709,7 @@ mod tests {
             }],
             true,
             true,
+            None,
             &[],
         )
         .expect_err("strict frame visual smoke fails without frames");
@@ -2673,6 +2730,7 @@ mod tests {
             }],
             true,
             false,
+            None,
             &[],
         )
         .expect_err("strict visual smoke fails without nodes");
