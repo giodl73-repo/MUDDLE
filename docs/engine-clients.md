@@ -21,6 +21,69 @@ game state. Its crate now exposes the same run loop as reusable library function
 so product repos can ship native launchers over their own hosts without copying
 renderer code or registering product rules inside MUDDLE.
 
+## Engine strategy
+
+The portfolio should treat "game engine" as a render/input target, not as the
+owner of game rules. MUDDLE keeps the portable room/session/snapshot contract;
+product repos keep domain state and scene direction; engine clients turn that
+state into a concrete play surface.
+
+| Engine target | Best use | Should not own |
+|---|---|---|
+| `muddle-macroquad` | Fast Rust-native desktop play, deterministic visual smoke, keyboard/mouse loops, lightweight 2D scene rendering, and product-owned native launchers. | Product rules, puzzle truth, scene authorship, or asset pipeline decisions. |
+| `muddle-window` | Accessible local browser play, inspectable JSON/state endpoints, persistence UX, and fast UI iteration. | Native game feel, engine timing, or final scene composition. |
+| Full scene engine candidate, for example Godot | Designer-authored scenes, hand-placed rooms/tables/world maps, animation timelines, stronger UI layout, imported art/audio assets, and export polish. | Canonical game state if it would fork MUDDLE/product rules. |
+
+Macroquad is therefore the current **testable native prototype engine**. It is
+excellent for proving that product-owned scenes have enough nodes, frames,
+animations, input, save/load, and replay coverage. It is not expected to become a
+full editor or asset-authoring environment. If a product needs hand-authored
+rooms, animation timelines, lighting, imported sprite atlases, or designer-owned
+placement workflows, add a full scene-engine adapter beside Macroquad rather
+than replacing the portable MUDDLE/product contract.
+
+The next engine decision should be evidence-based: keep Macroquad as the native
+smoke and prototype target, then introduce a Godot-style adapter only after one
+product scene has a specific authoring need that Macroquad cannot express
+cleanly.
+
+## What goes into building a game engine
+
+A game engine is not one feature. It is a stack of systems that repeatedly turns
+assets, input, rules, and state into frames, sound, saved progress, and player
+feedback.
+
+| Engine subsystem | What it does | MUDDLE portfolio stance |
+|---|---|---|
+| Main loop | Runs update/render ticks, input polling, timing, pause/resume, and exit. | Macroquad owns this for the native client. |
+| Platform/window layer | Opens windows, handles display size, fullscreen, OS events, files, and clipboard. | Engine client owns it; product repos should not. |
+| Input system | Normalizes keyboard, mouse, controller, touch, focus, and command shortcuts. | Engine client maps input into MUDDLE commands/actions. |
+| Renderer | Draws sprites, text, shapes, cameras, layers, materials, shaders, UI, and post-processing. | Macroquad provides a lightweight renderer; future full engines may add richer scene rendering. |
+| Scene graph / ECS | Stores objects, transforms, parent/child hierarchy, components, tags, and update order. | Product-owned visual nodes are the current portable scene description. |
+| Asset pipeline | Imports, validates, packs, caches, reloads, and versions textures, fonts, audio, animation, and data. | Mostly missing today; this is a major reason to consider a full scene engine later. |
+| Animation | Handles sprite sheets, tweening, timelines, skeletal rigs, particles, transitions, and state machines. | Macroquad has basic hooks; richer authored animation belongs in a future adapter if needed. |
+| Physics/collision | Simulates movement, triggers, raycasts, constraints, hitboxes, and spatial queries. | Not central to current MUDDLE slices; add only when a product needs it. |
+| Audio | Plays music, sound effects, spatial audio, mixing, ducking, and transitions. | Not yet a core gate; product scene direction should define audio needs first. |
+| UI system | Lays out panels, buttons, text, menus, HUD, accessibility, focus, and localization. | MUDDLE snapshots provide intent; each client renders concrete UI. |
+| Scripting/gameplay layer | Executes game rules, events, dialogue, quests, puzzles, AI, and state transitions. | Product repos plus MUDDLE hosts own this; the engine should not fork the rules. |
+| Persistence | Saves/loads state, checkpoints, slots, migrations, transcripts, and replay data. | MUDDLE owns portable command-replay/checkpoint contracts; clients expose UX. |
+| Tooling/editor | Lets designers place objects, edit scenes, preview animation, inspect state, and tune assets. | Macroquad does not provide this; Godot-style tooling would matter here. |
+| Build/export pipeline | Packages assets and binaries for desktop/web/mobile, with versioning and reproducible builds. | TRACKER/product launchers cover early native builds; full export polish is later. |
+| Testing/telemetry | Runs deterministic smokes, screenshots, replay checks, performance metrics, and diagnostics. | Visual smoke/persona harnesses are already valuable and should stay engine-agnostic. |
+
+The strategic question is which of these we want to build ourselves. For this
+portfolio, the answer should be selective: build the portable gameplay contract,
+host adapters, validation, and product-owned scene descriptions; reuse existing
+engines/frameworks for windowing, rendering, input, animation tooling, and asset
+pipelines whenever those become the bottleneck.
+
+Macroquad is a thin engine/framework: it gives us main loop, window/input,
+drawing, and enough rendering to validate native play. Godot/Unity/Unreal are
+full engines: they add editor tooling, scene graphs, asset import, animation,
+physics, audio, UI, and export workflows. Building a full engine ourselves would
+mean owning all of that surface area, which is usually only worth it when the
+engine itself is the product.
+
 ## Macroquad core play parity
 
 ```powershell
