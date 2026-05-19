@@ -7,6 +7,9 @@ text, image, button, and layout/group intent.
 
 - MUDDLE owns rooms, commands, panels, turn history, saves, checkpoints, and
   presentation intent.
+- Product hosts own scene experience and scene design: what the player is
+  looking at, why it matters, which physical surfaces/props/tokens exist, and
+  how those nodes express product fantasy and rules.
 - The client owns input, concrete layout, rendering, audio, animation, and platform
   integration.
 - The client sends commands into `MuddleSession::play_turn` and re-renders a new
@@ -64,6 +67,14 @@ command hints render as native clickable buttons that submit the same command
 strings as typed input. This keeps "what should be shown" reusable across
 clients while letting each client decide how text, image placeholders, button
 controls, and layout groups are drawn.
+
+Scene ownership is intentionally split. BANISH, AMAZE, TIGRIS, QUEST, or any
+future host must deliver the actual scene direction through product-owned visual
+nodes: tabletop planes, escape-room walls, world maps, actors, props, puzzle
+fixtures, HUD elements, and stateful frames. `muddle-macroquad` should make those
+nodes read better with product-neutral depth, color, layout, input, smoke gates,
+and animation hooks, but it should not decide what a BANISH trail, AMAZE wall, or
+TIGRIS table is supposed to be.
 
 Product-owned native launchers should call `run_muddle_macroquad_hosts` with
 their own `MuddleClientHostRegistration` list and a `MuddleMacroquadRunConfig`
