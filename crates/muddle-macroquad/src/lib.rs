@@ -132,6 +132,13 @@ pub struct MuddleMacroquadState {
     export_path: Option<PathBuf>,
 }
 
+const PLAY_MARGIN: f32 = 16.0;
+const TITLE_FONT_SIZE: f32 = 28.0;
+const PANEL_TITLE_FONT_SIZE: f32 = 22.0;
+const BODY_FONT_SIZE: f32 = 20.0;
+const BODY_LINE_HEIGHT: f32 = 25.0;
+const SMALL_FONT_SIZE: f32 = 16.0;
+
 impl Default for MuddleMacroquadRunOptions {
     fn default() -> Self {
         Self {
@@ -1958,21 +1965,22 @@ fn draw_play_layout(
     layout: &MuddleMacroquadPlayLayout,
     command_buttons: &mut Vec<(Rect, usize)>,
 ) {
-    let margin = 18.0;
+    let margin = PLAY_MARGIN;
     let width = screen_width();
     let height = screen_height();
+    draw_play_background(width, height);
     draw_region(
-        Rect::new(margin, margin, width - margin * 2.0, 92.0),
+        Rect::new(margin, margin, width - margin * 2.0, 104.0),
         title,
         &layout.header,
-        Color::from_rgba(28, 36, 48, 255),
+        PanelStyle::Header,
     );
 
-    let body_top = 122.0;
-    let command_height = 94.0;
-    let status_height = 92.0;
+    let body_top = 132.0;
+    let command_height = 116.0;
+    let status_height = 104.0;
     let body_height = height - body_top - command_height - status_height - margin * 2.0;
-    let left_width = (width - margin * 3.0) * 0.62;
+    let left_width = (width - margin * 3.0) * 0.64;
     let right_width = width - margin * 3.0 - left_width;
     let left = Rect::new(margin, body_top, left_width, body_height);
     if layout.visual_nodes.is_empty() {
@@ -1980,10 +1988,10 @@ fn draw_play_layout(
             left,
             &layout.room.label,
             &layout.room.lines,
-            Color::from_rgba(20, 27, 36, 255),
+            PanelStyle::Room,
         );
     } else {
-        let scene_height = (body_height * 0.46).max(140.0).min(body_height - 120.0);
+        let scene_height = (body_height * 0.54).max(180.0).min(body_height - 130.0);
         draw_visual_scene(
             Rect::new(left.x, left.y, left.w, scene_height),
             &layout.visual_nodes,
@@ -1997,7 +2005,7 @@ fn draw_play_layout(
             ),
             &layout.room.label,
             &layout.room.lines,
-            Color::from_rgba(20, 27, 36, 255),
+            PanelStyle::Room,
         );
     }
 
@@ -2027,7 +2035,7 @@ fn draw_play_layout(
         status_rect,
         &layout.status.label,
         &layout.status.lines,
-        Color::from_rgba(28, 36, 48, 255),
+        PanelStyle::Status,
     );
     let history_rect = Rect::new(
         status_rect.x + status_rect.w + margin,
@@ -2039,8 +2047,30 @@ fn draw_play_layout(
         history_rect,
         &layout.history.label,
         &layout.history.lines,
-        Color::from_rgba(20, 27, 36, 255),
+        PanelStyle::History,
     );
+}
+
+fn draw_play_background(width: f32, height: f32) {
+    clear_background(Color::from_rgba(8, 12, 20, 255));
+    draw_rectangle(0.0, 0.0, width, 118.0, Color::from_rgba(20, 34, 52, 255));
+    draw_rectangle(
+        0.0,
+        height - 236.0,
+        width,
+        236.0,
+        Color::from_rgba(10, 18, 30, 210),
+    );
+    let mut x = 0.0;
+    while x < width {
+        draw_line(x, 0.0, x, height, 1.0, Color::from_rgba(28, 43, 62, 60));
+        x += 48.0;
+    }
+    let mut y = 0.0;
+    while y < height {
+        draw_line(0.0, y, width, y, 1.0, Color::from_rgba(28, 43, 62, 45));
+        y += 48.0;
+    }
 }
 
 fn draw_panel_stack(rect: Rect, panels: &[MuddleMacroquadTextRegion]) {
@@ -2049,7 +2079,7 @@ fn draw_panel_stack(rect: Rect, panels: &[MuddleMacroquadTextRegion]) {
             rect,
             "Panels",
             &["No host panels available.".to_string()],
-            Color::from_rgba(20, 27, 36, 255),
+            PanelStyle::Panel,
         );
         return;
     }
@@ -2063,7 +2093,7 @@ fn draw_panel_stack(rect: Rect, panels: &[MuddleMacroquadTextRegion]) {
             Rect::new(rect.x, y, rect.w, panel_height),
             &panel.label,
             &panel.lines,
-            Color::from_rgba(20, 27, 36, 255),
+            PanelStyle::Panel,
         );
         y += panel_height + gap;
         if y > rect.y + rect.h {
@@ -2078,7 +2108,14 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         rect.y,
         rect.w,
         rect.h,
-        Color::from_rgba(12, 18, 28, 255),
+        Color::from_rgba(8, 14, 24, 245),
+    );
+    draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        38.0,
+        Color::from_rgba(24, 49, 72, 255),
     );
     draw_rectangle_lines(
         rect.x,
@@ -2088,7 +2125,14 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         2.0,
         Color::from_rgba(112, 175, 220, 255),
     );
-    draw_text("Scene", rect.x + 12.0, rect.y + 24.0, 20.0, WHITE);
+    draw_text(
+        "Scene",
+        rect.x + 14.0,
+        rect.y + 26.0,
+        PANEL_TITLE_FONT_SIZE,
+        WHITE,
+    );
+    draw_scene_grid(rect);
 
     let max_x = nodes
         .iter()
@@ -2102,7 +2146,7 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         .max()
         .unwrap_or(1)
         .max(1) as f32;
-    let content = Rect::new(rect.x + 14.0, rect.y + 38.0, rect.w - 28.0, rect.h - 52.0);
+    let content = Rect::new(rect.x + 18.0, rect.y + 50.0, rect.w - 36.0, rect.h - 68.0);
 
     for node in nodes {
         let x = content.x + (node.x.max(0) as f32 / max_x) * content.w;
@@ -2113,31 +2157,80 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         let border_color = visual_node_border_color(node);
         match node.kind {
             MuddleVisualNodeKind::Sprite => {
-                draw_rectangle(x, y, w.min(content.w), h.min(content.h), fill_color);
-                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.5, border_color);
-                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, WHITE);
+                let node_rect = Rect::new(x, y, w.min(content.w), h.min(content.h));
+                draw_rectangle(
+                    node_rect.x + 4.0,
+                    node_rect.y + 5.0,
+                    node_rect.w,
+                    node_rect.h,
+                    Color::from_rgba(0, 0, 0, 70),
+                );
+                draw_rectangle(
+                    node_rect.x,
+                    node_rect.y,
+                    node_rect.w,
+                    node_rect.h,
+                    fill_color,
+                );
+                draw_rectangle_lines(
+                    node_rect.x,
+                    node_rect.y,
+                    node_rect.w,
+                    node_rect.h,
+                    2.0,
+                    border_color,
+                );
+                draw_text(&node.label, x + 8.0, y + 21.0, SMALL_FONT_SIZE, WHITE);
                 if let Some(frame) = &node.sprite_frame {
-                    draw_text(frame, x + 6.0, y + 36.0, 14.0, LIGHTGRAY);
+                    draw_text(frame, x + 8.0, y + 41.0, SMALL_FONT_SIZE, LIGHTGRAY);
                 }
                 if let Some(source) = &node.sprite_source {
                     draw_text(
                         &visual_source_name(source),
-                        x + 6.0,
+                        x + 8.0,
                         y + h.min(content.h) - 8.0,
-                        12.0,
+                        13.0,
                         LIGHTGRAY,
                     );
                 }
             }
             MuddleVisualNodeKind::Text => {
                 let text = node.text.as_deref().unwrap_or(&node.label);
-                draw_text(text, x, y + 18.0, 18.0, fill_color);
+                draw_text(text, x, y + 24.0, BODY_FONT_SIZE, fill_color);
             }
             MuddleVisualNodeKind::Group => {
-                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.0, border_color);
-                draw_text(&node.label, x + 6.0, y + 18.0, 16.0, fill_color);
+                draw_rectangle_lines(x, y, w.min(content.w), h.min(content.h), 1.5, border_color);
+                draw_text(&node.label, x + 8.0, y + 21.0, SMALL_FONT_SIZE, fill_color);
             }
         }
+    }
+}
+
+fn draw_scene_grid(rect: Rect) {
+    let grid = Rect::new(rect.x + 16.0, rect.y + 48.0, rect.w - 32.0, rect.h - 64.0);
+    let mut x = grid.x;
+    while x <= grid.x + grid.w {
+        draw_line(
+            x,
+            grid.y,
+            x,
+            grid.y + grid.h,
+            1.0,
+            Color::from_rgba(68, 107, 132, 55),
+        );
+        x += 40.0;
+    }
+    let mut y = grid.y;
+    while y <= grid.y + grid.h {
+        draw_line(
+            grid.x,
+            y,
+            grid.x + grid.w,
+            y,
+            1.0,
+            Color::from_rgba(68, 107, 132, 45),
+        );
+        y += 34.0;
     }
 }
 
@@ -2196,7 +2289,14 @@ fn draw_command_buttons(
         rect.y,
         rect.w,
         rect.h,
-        Color::from_rgba(28, 36, 48, 255),
+        Color::from_rgba(18, 29, 44, 255),
+    );
+    draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        34.0,
+        Color::from_rgba(35, 59, 86, 255),
     );
     draw_rectangle_lines(
         rect.x,
@@ -2204,67 +2304,158 @@ fn draw_command_buttons(
         rect.w,
         rect.h,
         1.0,
-        Color::from_rgba(82, 100, 128, 255),
+        Color::from_rgba(112, 175, 220, 255),
     );
-    draw_text("Commands", rect.x + 12.0, rect.y + 24.0, 20.0, WHITE);
+    draw_text(
+        "Commands",
+        rect.x + 14.0,
+        rect.y + 24.0,
+        PANEL_TITLE_FONT_SIZE,
+        WHITE,
+    );
     if commands.is_empty() {
         draw_text(
             "No command hints from this host.",
             rect.x + 12.0,
-            rect.y + 54.0,
-            18.0,
+            rect.y + 62.0,
+            BODY_FONT_SIZE,
             GRAY,
         );
         return;
     }
 
-    let mut x = rect.x + 12.0;
-    let mut y = rect.y + 38.0;
+    let mut x = rect.x + 14.0;
+    let mut y = rect.y + 44.0;
     for command in commands {
         let label = command.command.as_str();
-        let text_size = measure_text(label, None, 18, 1.0);
-        let button_width = (text_size.width + 26.0).min(rect.w - 24.0);
-        if x + button_width > rect.x + rect.w - 12.0 {
-            x = rect.x + 12.0;
-            y += 32.0;
+        let text_size = measure_text(label, None, BODY_FONT_SIZE as u16, 1.0);
+        let button_width = (text_size.width + 34.0).min(rect.w - 28.0);
+        if x + button_width > rect.x + rect.w - 14.0 {
+            x = rect.x + 14.0;
+            y += 38.0;
         }
-        if y + 28.0 > rect.y + rect.h - 8.0 {
+        if y + 32.0 > rect.y + rect.h - 10.0 {
             break;
         }
-        let button = Rect::new(x, y, button_width, 26.0);
+        let button = Rect::new(x, y, button_width, 32.0);
         draw_rectangle(
             button.x,
             button.y,
             button.w,
             button.h,
-            Color::from_rgba(56, 75, 108, 255),
+            Color::from_rgba(52, 83, 121, 255),
         );
-        draw_rectangle_lines(button.x, button.y, button.w, button.h, 1.0, SKYBLUE);
-        draw_text(label, button.x + 10.0, button.y + 18.0, 18.0, WHITE);
+        draw_rectangle(button.x, button.y, 5.0, button.h, SKYBLUE);
+        draw_rectangle_lines(button.x, button.y, button.w, button.h, 1.5, SKYBLUE);
+        draw_text(
+            label,
+            button.x + 13.0,
+            button.y + 23.0,
+            BODY_FONT_SIZE,
+            WHITE,
+        );
         command_buttons.push((button, command.index));
-        x += button_width + 8.0;
+        x += button_width + 10.0;
     }
 }
 
-fn draw_region(rect: Rect, title: &str, lines: &[String], background: Color) {
+#[derive(Clone, Copy)]
+enum PanelStyle {
+    Header,
+    Room,
+    Panel,
+    Status,
+    History,
+}
+
+fn draw_region(rect: Rect, title: &str, lines: &[String], style: PanelStyle) {
+    let (background, band, accent) = panel_colors(style);
+    draw_rectangle(
+        rect.x + 4.0,
+        rect.y + 5.0,
+        rect.w,
+        rect.h,
+        Color::from_rgba(0, 0, 0, 70),
+    );
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, background);
+    draw_rectangle(rect.x, rect.y, rect.w, 36.0, band);
+    draw_rectangle(rect.x, rect.y, 6.0, rect.h, accent);
     draw_rectangle_lines(
         rect.x,
         rect.y,
         rect.w,
         rect.h,
-        1.0,
-        Color::from_rgba(82, 100, 128, 255),
+        1.5,
+        Color::from_rgba(104, 130, 160, 255),
     );
-    draw_text(title, rect.x + 12.0, rect.y + 24.0, 20.0, WHITE);
-    draw_lines(lines, rect.x + 12.0, rect.y + 50.0);
+    let title_size = match style {
+        PanelStyle::Header => TITLE_FONT_SIZE,
+        _ => PANEL_TITLE_FONT_SIZE,
+    };
+    draw_text(title, rect.x + 16.0, rect.y + 28.0, title_size, WHITE);
+    draw_lines_in_rect(
+        lines,
+        Rect::new(rect.x + 16.0, rect.y + 48.0, rect.w - 28.0, rect.h - 56.0),
+    );
+}
+
+fn panel_colors(style: PanelStyle) -> (Color, Color, Color) {
+    match style {
+        PanelStyle::Header => (
+            Color::from_rgba(19, 31, 48, 250),
+            Color::from_rgba(42, 70, 100, 255),
+            Color::from_rgba(235, 188, 88, 255),
+        ),
+        PanelStyle::Room => (
+            Color::from_rgba(13, 22, 35, 245),
+            Color::from_rgba(28, 50, 72, 255),
+            Color::from_rgba(117, 203, 186, 255),
+        ),
+        PanelStyle::Panel => (
+            Color::from_rgba(16, 25, 39, 245),
+            Color::from_rgba(31, 48, 68, 255),
+            Color::from_rgba(112, 175, 220, 255),
+        ),
+        PanelStyle::Status => (
+            Color::from_rgba(24, 31, 45, 250),
+            Color::from_rgba(54, 47, 72, 255),
+            Color::from_rgba(235, 188, 88, 255),
+        ),
+        PanelStyle::History => (
+            Color::from_rgba(13, 22, 35, 245),
+            Color::from_rgba(28, 43, 62, 255),
+            Color::from_rgba(126, 143, 168, 255),
+        ),
+    }
+}
+
+fn draw_lines_in_rect(lines: &[String], rect: Rect) {
+    let mut y = rect.y + BODY_FONT_SIZE;
+    let max_chars = ((rect.w / (BODY_FONT_SIZE * 0.52)).floor() as usize).clamp(24, 120);
+    for line in lines {
+        for wrapped in wrap_line(line, max_chars) {
+            if y > rect.y + rect.h {
+                return;
+            }
+            let color = if wrapped.starts_with("Input:") {
+                Color::from_rgba(235, 225, 176, 255)
+            } else {
+                Color::from_rgba(219, 229, 238, 255)
+            };
+            draw_text(&wrapped, rect.x, y, BODY_FONT_SIZE, color);
+            y += BODY_LINE_HEIGHT;
+        }
+        if line.is_empty() {
+            y += 6.0;
+        }
+    }
 }
 
 fn draw_lines(lines: &[String], x: f32, mut y: f32) {
     for line in lines {
         for wrapped in wrap_line(line, 92) {
-            draw_text(&wrapped, x, y, 18.0, LIGHTGRAY);
-            y += 22.0;
+            draw_text(&wrapped, x, y, BODY_FONT_SIZE, LIGHTGRAY);
+            y += BODY_LINE_HEIGHT;
             if y > screen_height() - 12.0 {
                 return;
             }
