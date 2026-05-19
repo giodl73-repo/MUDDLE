@@ -27,6 +27,7 @@ pub struct MuddleMacroquadRunOptions {
     pub visual_smoke_room: Option<String>,
     pub visual_smoke_min_nodes: Option<usize>,
     pub visual_smoke_min_frames: Option<usize>,
+    pub visual_smoke_min_turns: Option<usize>,
     pub visual_smoke_commands: Vec<String>,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
@@ -139,6 +140,7 @@ impl Default for MuddleMacroquadRunOptions {
             visual_smoke_room: None,
             visual_smoke_min_nodes: None,
             visual_smoke_min_frames: None,
+            visual_smoke_min_turns: None,
             visual_smoke_commands: Vec::new(),
             show_help: false,
             load_path: None,
@@ -1080,6 +1082,7 @@ pub async fn run_muddle_macroquad_hosts(
                 options.visual_smoke_room.as_deref(),
                 options.visual_smoke_min_nodes,
                 options.visual_smoke_min_frames,
+                options.visual_smoke_min_turns,
                 &options.visual_smoke_commands,
             )?
         );
@@ -1457,6 +1460,15 @@ pub fn parse_macroquad_run_options(
                     &value,
                 )?);
             }
+            "--visual-smoke-min-turns" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "`--visual-smoke-min-turns` requires a count.".to_string())?;
+                options.visual_smoke_min_turns = Some(parse_visual_smoke_count(
+                    "--visual-smoke-min-turns",
+                    &value,
+                )?);
+            }
             "--visual-smoke-command" => {
                 options.visual_smoke_commands.push(
                     args.next().ok_or_else(|| {
@@ -1549,6 +1561,9 @@ pub fn parse_macroquad_run_options(
                         "--visual-smoke-min-frames",
                         value,
                     )?);
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-min-turns=") {
+                    options.visual_smoke_min_turns =
+                        Some(parse_visual_smoke_count("--visual-smoke-min-turns", value)?);
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1569,7 +1584,7 @@ fn parse_visual_smoke_count(flag: &str, value: &str) -> Result<usize, String> {
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--require-visual-animation] [--visual-smoke-room <room-id>] [--visual-smoke-min-nodes <count>] [--visual-smoke-min-frames <count>] [--visual-smoke-command <command>] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--require-visual-animation] [--visual-smoke-room <room-id>] [--visual-smoke-min-nodes <count>] [--visual-smoke-min-frames <count>] [--visual-smoke-min-turns <count>] [--visual-smoke-command <command>] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1591,6 +1606,7 @@ pub fn macroquad_visual_smoke(
     expected_room: Option<&str>,
     min_nodes: Option<usize>,
     min_frames: Option<usize>,
+    min_turns: Option<usize>,
     commands: &[String],
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
@@ -1600,6 +1616,7 @@ pub fn macroquad_visual_smoke(
     let mut room_mismatch_hosts = Vec::new();
     let mut low_node_hosts = Vec::new();
     let mut low_frame_hosts = Vec::new();
+    let mut low_turn_hosts = Vec::new();
     for registration in registrations {
         let mut host = (registration.create)();
         let mut session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
@@ -1674,6 +1691,14 @@ pub fn macroquad_visual_smoke(
                 frame_count
             ));
             "too few visual frames"
+        } else if min_turns.is_some_and(|minimum| session.transcript.len() < minimum) {
+            low_turn_hosts.push(format!(
+                "{} expected at least {} got {}",
+                registration.name,
+                min_turns.unwrap_or_default(),
+                session.transcript.len()
+            ));
+            "too few turns"
         } else if expected_room.is_some_and(|room| snapshot.room != room) {
             room_mismatch_hosts.push(format!(
                 "{} expected {} got {}",
@@ -1727,6 +1752,12 @@ pub fn macroquad_visual_smoke(
         return Err(format!(
             "visual smoke failed: hosts below visual frame minimum: {}",
             low_frame_hosts.join(", ")
+        ));
+    }
+    if !low_turn_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts below turn minimum: {}",
+            low_turn_hosts.join(", ")
         ));
     }
     if !room_mismatch_hosts.is_empty() {
@@ -2709,6 +2740,7 @@ mod tests {
             "--visual-smoke-min-nodes".to_string(),
             "2".to_string(),
             "--visual-smoke-min-frames=1".to_string(),
+            "--visual-smoke-min-turns=1".to_string(),
             "--visual-smoke-command".to_string(),
             "look".to_string(),
             "--visual-smoke-command=wait".to_string(),
@@ -2726,6 +2758,7 @@ mod tests {
         assert_eq!(options.visual_smoke_room.as_deref(), Some("scene"));
         assert_eq!(options.visual_smoke_min_nodes, Some(2));
         assert_eq!(options.visual_smoke_min_frames, Some(1));
+        assert_eq!(options.visual_smoke_min_turns, Some(1));
         assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
     }
 
@@ -2742,6 +2775,7 @@ mod tests {
             true,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -2770,6 +2804,7 @@ mod tests {
             Some("scene"),
             Some(2),
             Some(1),
+            Some(1),
             &["advance".to_string()],
         )
         .expect("visual smoke succeeds");
@@ -2794,6 +2829,7 @@ mod tests {
             Some("scene"),
             Some(2),
             Some(1),
+            None,
             &[],
         )
         .expect_err("visual smoke fails without animation");
@@ -2818,6 +2854,7 @@ mod tests {
             Some("scene"),
             Some(3),
             Some(1),
+            Some(1),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails below node minimum");
@@ -2837,10 +2874,31 @@ mod tests {
             Some("scene"),
             Some(2),
             Some(2),
+            Some(1),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails below frame minimum");
         assert!(low_frames.contains("expected at least 2 got 1"));
+
+        let low_turns = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            true,
+            true,
+            Some("scene"),
+            Some(2),
+            Some(1),
+            Some(2),
+            &["advance".to_string()],
+        )
+        .expect_err("visual smoke fails below turn minimum");
+        assert!(low_turns.contains("expected at least 2 got 1"));
     }
 
     #[test]
@@ -2857,6 +2915,7 @@ mod tests {
             true,
             true,
             Some("elsewhere"),
+            None,
             None,
             None,
             &["advance".to_string()],
@@ -2882,6 +2941,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             &[],
         )
         .expect_err("strict frame visual smoke fails without frames");
@@ -2903,6 +2963,7 @@ mod tests {
             true,
             false,
             false,
+            None,
             None,
             None,
             None,
