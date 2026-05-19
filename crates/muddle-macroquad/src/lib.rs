@@ -2244,6 +2244,13 @@ fn visual_node_fill_color(node: &MuddleMacroquadVisualNode) -> Color {
             Some("idle") => Color::from_rgba(54, 104, 153, 210),
             Some("armed") => Color::from_rgba(172, 67, 67, 235),
             Some("building") => Color::from_rgba(168, 111, 48, 225),
+            Some("prism-warm") => Color::from_rgba(206, 126, 62, 235),
+            Some("prism-cyan") => Color::from_rgba(42, 168, 184, 235),
+            Some("prism-violet") => Color::from_rgba(126, 82, 190, 235),
+            Some("prism-gold") => Color::from_rgba(218, 171, 68, 240),
+            Some("prism-garden") => Color::from_rgba(70, 150, 92, 235),
+            Some("prism-locked") => Color::from_rgba(106, 86, 128, 230),
+            Some("prism-solved") => Color::from_rgba(92, 190, 168, 240),
             Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => {
                 Color::from_rgba(188, 143, 58, 235)
             }
@@ -2265,6 +2272,13 @@ fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
     match node.sprite_frame.as_deref() {
         Some("active") => LIME,
         Some("armed") => RED,
+        Some("prism-warm") => ORANGE,
+        Some("prism-cyan") => SKYBLUE,
+        Some("prism-violet") => Color::from_rgba(202, 158, 255, 255),
+        Some("prism-gold") => GOLD,
+        Some("prism-garden") => GREEN,
+        Some("prism-locked") => Color::from_rgba(185, 152, 216, 255),
+        Some("prism-solved") => Color::from_rgba(156, 255, 222, 255),
         Some("claimed") | Some("closed") | Some("lit") | Some("broadcast") => GOLD,
         Some("ready") | Some("ordered") | Some("set") | Some("scouted") | Some("resolved")
         | Some("scored") | Some("frequency") | Some("bearing") => GREEN,
