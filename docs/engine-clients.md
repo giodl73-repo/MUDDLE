@@ -47,6 +47,35 @@ smoke and prototype target, then introduce a Godot-style adapter only after one
 product scene has a specific authoring need that Macroquad cannot express
 cleanly.
 
+## Scalable experience framework proof
+
+The larger thesis is that the portfolio needs a **scalable experience
+framework**, with one or more engines proving it. The framework should scale down
+to tests, scripts, and command play, then scale up to browser UX, native scenes,
+and eventually authored scene engines without copying product rules.
+
+| Layer | Proof target | First proving surface |
+|---|---|---|
+| Portable core | State, actions, snapshots, scene nodes, UX intent, replay, persistence, and validation can stay product-neutral. | MUDDLE core/session/snapshot contracts. |
+| Product scene authorship | Products own the fantasy, physical surfaces, actors, props, placements, and rule meaning. | BANISH worlds, AMAZE walls, TIGRIS tabletop, QUEST encounter board. |
+| Browser adapter | The same state can become a rich, inspectable, responsive UX with JavaScript/HTML/CSS, debugging affordances, and fast iteration. | `muddle-window`; future work can add WASM/canvas/WebGL experiments. |
+| Native Rust adapter | The same state can run in a desktop game loop with keyboard/mouse input, visual smoke, and all-Rust packaging. | `muddle-macroquad`. |
+| Full scene-engine adapter | The same state can drive designer-authored scenes, animation timelines, asset imports, and stronger layout without forking rules. | Candidate later: Godot, Bevy, Fyrox, or another adapter after one concrete product need. |
+
+This proof is different from building a monolithic game engine. The framework
+should define the experience contract; engines should implement concrete
+surfaces. A browser can prove high-iteration UX and inspection because it already
+has JavaScript, HTML/CSS layout, devtools, canvas/WebGL, accessibility, and easy
+sharing. Macroquad can prove deterministic native play and smoke testing. A full
+scene engine should only enter when we need authored assets, animation,
+placement, or export tooling that those first two surfaces cannot provide.
+
+The minimum convincing proof is one product slice feeding at least two engines:
+browser and Macroquad now, with the same state/actions/snapshot/scene contract.
+If both surfaces remain useful while product rules stay in the product repo, the
+framework is scaling. If each engine starts reimplementing rules, the framework
+boundary has failed.
+
 ## What goes into building a game engine
 
 A game engine is not one feature. It is a stack of systems that repeatedly turns

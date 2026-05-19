@@ -6,6 +6,12 @@ Portfolio games need one shared play surface before they need full engines.
 MUDDLE provides a MUD-like text/ASCII UX layer that can host video-game,
 escape-room, and board-game experiences through product-owned adapters.
 
+The next strategic proof is broader than a single game engine: MUDDLE should
+evolve toward a scalable experience framework where portable Rust
+state/actions/snapshots/scene intent can scale down to scripts and tests, then
+scale up through browser, native Macroquad, and future full-scene-engine
+adapters without moving product rules out of product repos.
+
 ## Product promise
 
 A player can enter a room, read a stable text/ASCII view, issue commands, move
@@ -33,6 +39,7 @@ escape room without becoming either product's engine.
 | Engine client contract | Browser and game-engine clients consume the shared `MuddleClientSnapshot` and host-registration surface from `muddle-core`. |
 | Reusable client controls | `muddle-core` exposes product-neutral text, image, button, and layout/group controls so clients can share presentation intent without sharing rendering code. |
 | Macroquad core play parity | A lightweight Macroquad window can choose mounted hosts, run the shared room-command loop, recall commands, restart/change hosts, save/reload/import/export/transcript through shared command-replay contracts, show native persistence availability/path cues, browse/filter/sort/inspect/save/load/delete/export sibling save slots, render structured game-client regions, click host-provided command controls, and expose the native run loop for product-owned launchers without moving product rules into the renderer. |
+| Scalable experience proof | At least one product slice feeds both browser and native engine clients through the same state/action/snapshot/scene contract, proving that richer UX surfaces do not fork product rules. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
