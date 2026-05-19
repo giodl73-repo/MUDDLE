@@ -1080,10 +1080,12 @@ pub async fn run_muddle_macroquad_hosts(
         return Ok(());
     }
     if options.visual_smoke {
+        let visual_smoke_registrations =
+            selected_visual_smoke_registrations(&registrations, options.host_name.as_deref())?;
         println!(
             "{}",
             macroquad_visual_smoke(
-                &registrations,
+                &visual_smoke_registrations,
                 options.require_visuals,
                 options.require_visual_frames,
                 options.require_visual_animation,
@@ -1652,6 +1654,21 @@ pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> St
         ));
     }
     lines.join("\n")
+}
+
+fn selected_visual_smoke_registrations(
+    registrations: &[MuddleClientHostRegistration],
+    host_name: Option<&str>,
+) -> Result<Vec<MuddleClientHostRegistration>, String> {
+    match host_name {
+        Some(host_name) => registrations
+            .iter()
+            .find(|registration| registration.name == host_name)
+            .copied()
+            .map(|registration| vec![registration])
+            .ok_or_else(|| format!("Unknown MUDDLE Macroquad host `{host_name}`.")),
+        None => Ok(registrations.to_vec()),
+    }
 }
 
 pub fn macroquad_visual_smoke(
@@ -2926,6 +2943,32 @@ mod tests {
             Some("advance")
         );
         assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
+    }
+
+    #[test]
+    fn visual_smoke_respects_selected_host() {
+        let registrations = [
+            MuddleClientHostRegistration {
+                name: "first-host",
+                category: "Tests",
+                description: "First visual smoke host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            },
+            MuddleClientHostRegistration {
+                name: "second-host",
+                category: "Tests",
+                description: "Second visual smoke host.",
+                suggested_commands: "`advance`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            },
+        ];
+
+        let selected = selected_visual_smoke_registrations(&registrations, Some("second-host"))
+            .expect("host selected");
+
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].name, "second-host");
     }
 
     #[test]
