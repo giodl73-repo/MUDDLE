@@ -24,6 +24,8 @@ pub struct MuddleMacroquadRunOptions {
     pub require_visuals: bool,
     pub require_visual_frames: bool,
     pub visual_smoke_room: Option<String>,
+    pub visual_smoke_min_nodes: Option<usize>,
+    pub visual_smoke_min_frames: Option<usize>,
     pub visual_smoke_commands: Vec<String>,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
@@ -133,6 +135,8 @@ impl Default for MuddleMacroquadRunOptions {
             require_visuals: false,
             require_visual_frames: false,
             visual_smoke_room: None,
+            visual_smoke_min_nodes: None,
+            visual_smoke_min_frames: None,
             visual_smoke_commands: Vec::new(),
             show_help: false,
             load_path: None,
@@ -1071,6 +1075,8 @@ pub async fn run_muddle_macroquad_hosts(
                 options.require_visuals,
                 options.require_visual_frames,
                 options.visual_smoke_room.as_deref(),
+                options.visual_smoke_min_nodes,
+                options.visual_smoke_min_frames,
                 &options.visual_smoke_commands,
             )?
         );
@@ -1429,6 +1435,24 @@ pub fn parse_macroquad_run_options(
                         .ok_or_else(|| "`--visual-smoke-room` requires a room id.".to_string())?,
                 );
             }
+            "--visual-smoke-min-nodes" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "`--visual-smoke-min-nodes` requires a count.".to_string())?;
+                options.visual_smoke_min_nodes = Some(parse_visual_smoke_count(
+                    "--visual-smoke-min-nodes",
+                    &value,
+                )?);
+            }
+            "--visual-smoke-min-frames" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "`--visual-smoke-min-frames` requires a count.".to_string())?;
+                options.visual_smoke_min_frames = Some(parse_visual_smoke_count(
+                    "--visual-smoke-min-frames",
+                    &value,
+                )?);
+            }
             "--visual-smoke-command" => {
                 options.visual_smoke_commands.push(
                     args.next().ok_or_else(|| {
@@ -1513,6 +1537,14 @@ pub fn parse_macroquad_run_options(
                         return Err("`--visual-smoke-room` requires a room id.".to_string());
                     }
                     options.visual_smoke_room = Some(value.to_string());
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-min-nodes=") {
+                    options.visual_smoke_min_nodes =
+                        Some(parse_visual_smoke_count("--visual-smoke-min-nodes", value)?);
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-min-frames=") {
+                    options.visual_smoke_min_frames = Some(parse_visual_smoke_count(
+                        "--visual-smoke-min-frames",
+                        value,
+                    )?);
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1523,8 +1555,17 @@ pub fn parse_macroquad_run_options(
     Ok(options)
 }
 
+fn parse_visual_smoke_count(flag: &str, value: &str) -> Result<usize, String> {
+    if value.is_empty() {
+        return Err(format!("`{flag}` requires a count."));
+    }
+    value
+        .parse::<usize>()
+        .map_err(|_| format!("`{flag}` requires a non-negative integer count."))
+}
+
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--visual-smoke-room <room-id>] [--visual-smoke-command <command>] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--visual-smoke-room <room-id>] [--visual-smoke-min-nodes <count>] [--visual-smoke-min-frames <count>] [--visual-smoke-command <command>] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1543,12 +1584,16 @@ pub fn macroquad_visual_smoke(
     require_visuals: bool,
     require_visual_frames: bool,
     expected_room: Option<&str>,
+    min_nodes: Option<usize>,
+    min_frames: Option<usize>,
     commands: &[String],
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
     let mut missing_visual_hosts = Vec::new();
     let mut missing_frame_hosts = Vec::new();
     let mut room_mismatch_hosts = Vec::new();
+    let mut low_node_hosts = Vec::new();
+    let mut low_frame_hosts = Vec::new();
     for registration in registrations {
         let mut host = (registration.create)();
         let mut session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
@@ -1604,6 +1649,22 @@ pub fn macroquad_visual_smoke(
         } else if require_visual_frames && frame_count == 0 {
             missing_frame_hosts.push(registration.name);
             "no visual frames"
+        } else if min_nodes.is_some_and(|minimum| layout.visual_nodes.len() < minimum) {
+            low_node_hosts.push(format!(
+                "{} expected at least {} got {}",
+                registration.name,
+                min_nodes.unwrap_or_default(),
+                layout.visual_nodes.len()
+            ));
+            "too few visual nodes"
+        } else if min_frames.is_some_and(|minimum| frame_count < minimum) {
+            low_frame_hosts.push(format!(
+                "{} expected at least {} got {}",
+                registration.name,
+                min_frames.unwrap_or_default(),
+                frame_count
+            ));
+            "too few visual frames"
         } else if expected_room.is_some_and(|room| snapshot.room != room) {
             room_mismatch_hosts.push(format!(
                 "{} expected {} got {}",
@@ -1639,6 +1700,18 @@ pub fn macroquad_visual_smoke(
         return Err(format!(
             "visual smoke failed: hosts without visual frames: {}",
             missing_frame_hosts.join(", ")
+        ));
+    }
+    if !low_node_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts below visual node minimum: {}",
+            low_node_hosts.join(", ")
+        ));
+    }
+    if !low_frame_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts below visual frame minimum: {}",
+            low_frame_hosts.join(", ")
         ));
     }
     if !room_mismatch_hosts.is_empty() {
@@ -2617,6 +2690,9 @@ mod tests {
             "--require-visual-frames".to_string(),
             "--visual-smoke-room".to_string(),
             "scene".to_string(),
+            "--visual-smoke-min-nodes".to_string(),
+            "2".to_string(),
+            "--visual-smoke-min-frames=1".to_string(),
             "--visual-smoke-command".to_string(),
             "look".to_string(),
             "--visual-smoke-command=wait".to_string(),
@@ -2631,6 +2707,8 @@ mod tests {
         assert!(options.require_visuals);
         assert!(options.require_visual_frames);
         assert_eq!(options.visual_smoke_room.as_deref(), Some("scene"));
+        assert_eq!(options.visual_smoke_min_nodes, Some(2));
+        assert_eq!(options.visual_smoke_min_frames, Some(1));
         assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
     }
 
@@ -2646,6 +2724,8 @@ mod tests {
             }],
             true,
             false,
+            None,
+            None,
             None,
             &[],
         )
@@ -2669,12 +2749,53 @@ mod tests {
             true,
             true,
             Some("scene"),
+            Some(2),
+            Some(1),
             &["advance".to_string()],
         )
         .expect("visual smoke succeeds");
 
         assert!(output.contains("turns=1"));
         assert!(output.contains("frames=1"));
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_can_require_minimum_counts() {
+        let low_nodes = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            true,
+            Some("scene"),
+            Some(3),
+            Some(1),
+            &["advance".to_string()],
+        )
+        .expect_err("visual smoke fails below node minimum");
+        assert!(low_nodes.contains("expected at least 3 got 2"));
+
+        let low_frames = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            true,
+            Some("scene"),
+            Some(2),
+            Some(2),
+            &["advance".to_string()],
+        )
+        .expect_err("visual smoke fails below frame minimum");
+        assert!(low_frames.contains("expected at least 2 got 1"));
     }
 
     #[test]
@@ -2690,6 +2811,8 @@ mod tests {
             true,
             true,
             Some("elsewhere"),
+            None,
+            None,
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails in unexpected room");
@@ -2709,6 +2832,8 @@ mod tests {
             }],
             true,
             true,
+            None,
+            None,
             None,
             &[],
         )
@@ -2730,6 +2855,8 @@ mod tests {
             }],
             true,
             false,
+            None,
+            None,
             None,
             &[],
         )
