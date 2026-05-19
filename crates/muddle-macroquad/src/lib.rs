@@ -2158,13 +2158,23 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
         match node.kind {
             MuddleVisualNodeKind::Sprite => {
                 let node_rect = Rect::new(x, y, w.min(content.w), h.min(content.h));
+                let depth_offset = visual_node_depth_offset(node);
                 draw_rectangle(
-                    node_rect.x + 4.0,
-                    node_rect.y + 5.0,
+                    node_rect.x + depth_offset,
+                    node_rect.y + depth_offset + 1.0,
                     node_rect.w,
                     node_rect.h,
-                    Color::from_rgba(0, 0, 0, 70),
+                    Color::from_rgba(0, 0, 0, visual_node_shadow_alpha(node)),
                 );
+                if visual_node_reads_as_physical(node) {
+                    draw_rectangle(
+                        node_rect.x + 2.0,
+                        node_rect.y + 2.0,
+                        node_rect.w,
+                        node_rect.h,
+                        Color::from_rgba(255, 255, 255, 18),
+                    );
+                }
                 draw_rectangle(
                     node_rect.x,
                     node_rect.y,
@@ -2172,6 +2182,9 @@ fn draw_visual_scene(rect: Rect, nodes: &[MuddleMacroquadVisualNode]) {
                     node_rect.h,
                     fill_color,
                 );
+                if visual_node_reads_as_physical(node) {
+                    draw_physical_surface_marks(node_rect, border_color);
+                }
                 draw_rectangle_lines(
                     node_rect.x,
                     node_rect.y,
@@ -2251,6 +2264,10 @@ fn visual_node_fill_color(node: &MuddleMacroquadVisualNode) -> Color {
             Some("prism-garden") => Color::from_rgba(70, 150, 92, 235),
             Some("prism-locked") => Color::from_rgba(106, 86, 128, 230),
             Some("prism-solved") => Color::from_rgba(92, 190, 168, 240),
+            Some("wall") => Color::from_rgba(86, 98, 116, 235),
+            Some("floor") => Color::from_rgba(74, 88, 82, 235),
+            Some("locked") => Color::from_rgba(112, 70, 78, 235),
+            Some("unlocked") => Color::from_rgba(78, 142, 98, 235),
             Some("tigris-parchment") => Color::from_rgba(174, 132, 74, 235),
             Some("tigris-ink") => Color::from_rgba(63, 83, 118, 235),
             Some("tigris-gold") => Color::from_rgba(202, 158, 68, 240),
@@ -2286,6 +2303,10 @@ fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
         Some("prism-garden") => GREEN,
         Some("prism-locked") => Color::from_rgba(185, 152, 216, 255),
         Some("prism-solved") => Color::from_rgba(156, 255, 222, 255),
+        Some("wall") => Color::from_rgba(148, 166, 190, 255),
+        Some("floor") => Color::from_rgba(126, 154, 138, 255),
+        Some("locked") => RED,
+        Some("unlocked") => LIME,
         Some("tigris-parchment") => Color::from_rgba(235, 196, 128, 255),
         Some("tigris-ink") => Color::from_rgba(154, 184, 226, 255),
         Some("tigris-gold") => GOLD,
@@ -2297,6 +2318,104 @@ fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
         Some("ready") | Some("ordered") | Some("set") | Some("scouted") | Some("resolved")
         | Some("scored") | Some("frequency") | Some("bearing") => GREEN,
         _ => WHITE,
+    }
+}
+
+fn visual_node_depth_offset(node: &MuddleMacroquadVisualNode) -> f32 {
+    if visual_node_reads_as_physical(node) {
+        8.0 + (node.layer.max(0).min(30) as f32 * 0.08)
+    } else {
+        4.0
+    }
+}
+
+fn visual_node_shadow_alpha(node: &MuddleMacroquadVisualNode) -> u8 {
+    if visual_node_reads_as_physical(node) {
+        105
+    } else {
+        70
+    }
+}
+
+fn visual_node_reads_as_physical(node: &MuddleMacroquadVisualNode) -> bool {
+    let id = node.id.to_ascii_lowercase();
+    let label = node.label.to_ascii_lowercase();
+    let source = node
+        .sprite_source
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let frame = node
+        .sprite_frame
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    [
+        "surface", "wall", "floor", "tabletop", "rail", "edge", "frame", "door", "hatch",
+        "terrain", "river", "camera", "hud", "avatar", "world",
+    ]
+    .iter()
+    .any(|needle| {
+        id.contains(needle)
+            || label.contains(needle)
+            || source.contains(needle)
+            || frame.contains(needle)
+    })
+}
+
+fn draw_physical_surface_marks(rect: Rect, accent: Color) {
+    let highlight = Color::from_rgba(255, 255, 255, 44);
+    let lowlight = Color::from_rgba(0, 0, 0, 58);
+    draw_line(
+        rect.x + 3.0,
+        rect.y + 3.0,
+        rect.x + rect.w - 3.0,
+        rect.y + 3.0,
+        2.0,
+        highlight,
+    );
+    draw_line(
+        rect.x + 3.0,
+        rect.y + rect.h - 4.0,
+        rect.x + rect.w - 3.0,
+        rect.y + rect.h - 4.0,
+        2.0,
+        lowlight,
+    );
+    draw_line(
+        rect.x + 4.0,
+        rect.y + 4.0,
+        rect.x + 4.0,
+        rect.y + rect.h - 4.0,
+        1.5,
+        highlight,
+    );
+    draw_line(
+        rect.x + rect.w - 5.0,
+        rect.y + 5.0,
+        rect.x + rect.w - 5.0,
+        rect.y + rect.h - 5.0,
+        1.5,
+        lowlight,
+    );
+    if rect.w > 90.0 && rect.h > 48.0 {
+        let mut inset = 18.0;
+        while inset < rect.w.min(rect.h) {
+            draw_line(
+                rect.x + inset,
+                rect.y + rect.h - 6.0,
+                rect.x + rect.w - 6.0,
+                rect.y + inset,
+                1.0,
+                Color::from_rgba(
+                    (accent.r * 255.0) as u8,
+                    (accent.g * 255.0) as u8,
+                    (accent.b * 255.0) as u8,
+                    40,
+                ),
+            );
+            inset += 30.0;
+        }
     }
 }
 
@@ -3001,6 +3120,48 @@ mod tests {
         assert_ne!(
             visual_node_fill_color(&tigris_ledger),
             visual_node_fill_color(&tigris_closed)
+        );
+    }
+
+    #[test]
+    fn macroquad_visual_nodes_detect_physical_surfaces_for_depth() {
+        let tabletop = MuddleMacroquadVisualNode {
+            id: "tabletop-surface".to_string(),
+            kind: MuddleVisualNodeKind::Sprite,
+            label: "Tabletop surface".to_string(),
+            text: None,
+            sprite_source: Some("sprites/tabletop-surface.png".to_string()),
+            sprite_frame: Some("tigris-parchment".to_string()),
+            sprite_animation: None,
+            layer: 2,
+            x: 0,
+            y: 0,
+            width: 12,
+            height: 6,
+        };
+        let token = MuddleMacroquadVisualNode {
+            id: "stake-token".to_string(),
+            label: "Stake token".to_string(),
+            sprite_source: Some("sprites/stake-token.png".to_string()),
+            width: 1,
+            height: 1,
+            ..tabletop.clone()
+        };
+        let wall = MuddleMacroquadVisualNode {
+            id: "escape-room-back".to_string(),
+            label: "Back wall".to_string(),
+            sprite_source: Some("sprites/back-wall.png".to_string()),
+            sprite_frame: Some("wall".to_string()),
+            ..tabletop.clone()
+        };
+
+        assert!(visual_node_reads_as_physical(&tabletop));
+        assert!(visual_node_reads_as_physical(&wall));
+        assert!(!visual_node_reads_as_physical(&token));
+        assert!(visual_node_depth_offset(&tabletop) > visual_node_depth_offset(&token));
+        assert_eq!(
+            visual_node_border_color(&wall),
+            Color::from_rgba(148, 166, 190, 255)
         );
     }
 
