@@ -30,6 +30,7 @@ pub struct MuddleMacroquadRunOptions {
     pub visual_smoke_min_turns: Option<usize>,
     pub visual_smoke_response_contains: Option<String>,
     pub visual_smoke_visual_text_contains: Option<String>,
+    pub visual_smoke_panel_contains: Option<String>,
     pub visual_smoke_commands: Vec<String>,
     pub show_help: bool,
     pub load_path: Option<PathBuf>,
@@ -145,6 +146,7 @@ impl Default for MuddleMacroquadRunOptions {
             visual_smoke_min_turns: None,
             visual_smoke_response_contains: None,
             visual_smoke_visual_text_contains: None,
+            visual_smoke_panel_contains: None,
             visual_smoke_commands: Vec::new(),
             show_help: false,
             load_path: None,
@@ -1089,6 +1091,7 @@ pub async fn run_muddle_macroquad_hosts(
                 options.visual_smoke_min_turns,
                 options.visual_smoke_response_contains.as_deref(),
                 options.visual_smoke_visual_text_contains.as_deref(),
+                options.visual_smoke_panel_contains.as_deref(),
                 &options.visual_smoke_commands,
             )?
         );
@@ -1485,6 +1488,12 @@ pub fn parse_macroquad_run_options(
                     "`--visual-smoke-visual-text-contains` requires text.".to_string()
                 })?);
             }
+            "--visual-smoke-panel-contains" => {
+                options.visual_smoke_panel_contains =
+                    Some(args.next().ok_or_else(|| {
+                        "`--visual-smoke-panel-contains` requires text.".to_string()
+                    })?);
+            }
             "--visual-smoke-command" => {
                 options.visual_smoke_commands.push(
                     args.next().ok_or_else(|| {
@@ -1593,6 +1602,11 @@ pub fn parse_macroquad_run_options(
                         );
                     }
                     options.visual_smoke_visual_text_contains = Some(value.to_string());
+                } else if let Some(value) = arg.strip_prefix("--visual-smoke-panel-contains=") {
+                    if value.is_empty() {
+                        return Err("`--visual-smoke-panel-contains` requires text.".to_string());
+                    }
+                    options.visual_smoke_panel_contains = Some(value.to_string());
                 } else {
                     return Err(format!("Unknown argument `{arg}`."));
                 }
@@ -1613,7 +1627,7 @@ fn parse_visual_smoke_count(flag: &str, value: &str) -> Result<usize, String> {
 }
 
 pub fn macroquad_usage() -> &'static str {
-    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--require-visual-animation] [--visual-smoke-room <room-id>] [--visual-smoke-min-nodes <count>] [--visual-smoke-min-frames <count>] [--visual-smoke-min-turns <count>] [--visual-smoke-response-contains <text>] [--visual-smoke-visual-text-contains <text>] [--visual-smoke-command <command>] [--help]"
+    "Usage: muddle-macroquad [--host <name>] [--load <path>] [--save <path>] [--transcript <path>] [--import <path>] [--export <path>] [--list-hosts] [--visual-smoke] [--require-visuals] [--require-visual-frames] [--require-visual-animation] [--visual-smoke-room <room-id>] [--visual-smoke-min-nodes <count>] [--visual-smoke-min-frames <count>] [--visual-smoke-min-turns <count>] [--visual-smoke-response-contains <text>] [--visual-smoke-visual-text-contains <text>] [--visual-smoke-panel-contains <text>] [--visual-smoke-command <command>] [--help]"
 }
 
 pub fn macroquad_host_list(registrations: &[MuddleClientHostRegistration]) -> String {
@@ -1638,6 +1652,7 @@ pub fn macroquad_visual_smoke(
     min_turns: Option<usize>,
     response_contains: Option<&str>,
     visual_text_contains: Option<&str>,
+    panel_contains: Option<&str>,
     commands: &[String],
 ) -> Result<String, String> {
     let mut lines = vec!["MUDDLE Macroquad visual smoke:".to_string()];
@@ -1650,6 +1665,7 @@ pub fn macroquad_visual_smoke(
     let mut low_turn_hosts = Vec::new();
     let mut response_mismatch_hosts = Vec::new();
     let mut visual_text_mismatch_hosts = Vec::new();
+    let mut panel_mismatch_hosts = Vec::new();
     for registration in registrations {
         let mut host = (registration.create)();
         let mut session = MuddleSession::for_host(host.as_ref()).map_err(|error| {
@@ -1752,6 +1768,13 @@ pub fn macroquad_visual_smoke(
                 visual_text_contains.unwrap_or_default()
             ));
             "unexpected visual text"
+        } else if panel_contains.is_some_and(|expected| !panels_contain_text(&layout, expected)) {
+            panel_mismatch_hosts.push(format!(
+                "{} expected panel text containing {:?}",
+                registration.name,
+                panel_contains.unwrap_or_default()
+            ));
+            "unexpected panel text"
         } else if expected_room.is_some_and(|room| snapshot.room != room) {
             room_mismatch_hosts.push(format!(
                 "{} expected {} got {}",
@@ -1825,6 +1848,12 @@ pub fn macroquad_visual_smoke(
             visual_text_mismatch_hosts.join(", ")
         ));
     }
+    if !panel_mismatch_hosts.is_empty() {
+        return Err(format!(
+            "visual smoke failed: hosts with unexpected panel text: {}",
+            panel_mismatch_hosts.join(", ")
+        ));
+    }
     if !room_mismatch_hosts.is_empty() {
         return Err(format!(
             "visual smoke failed: hosts in unexpected rooms: {}",
@@ -1841,6 +1870,12 @@ fn visual_nodes_contain_text(nodes: &[MuddleMacroquadVisualNode], expected: &str
                 .text
                 .as_deref()
                 .is_some_and(|text| text.contains(expected))
+    })
+}
+
+fn panels_contain_text(layout: &MuddleMacroquadPlayLayout, expected: &str) -> bool {
+    layout.panels.iter().any(|panel| {
+        panel.label.contains(expected) || panel.lines.iter().any(|line| line.contains(expected))
     })
 }
 
@@ -2818,6 +2853,7 @@ mod tests {
             "--visual-smoke-min-turns=1".to_string(),
             "--visual-smoke-response-contains=Ready".to_string(),
             "--visual-smoke-visual-text-contains=Ready".to_string(),
+            "--visual-smoke-panel-contains=Scene room".to_string(),
             "--visual-smoke-command".to_string(),
             "look".to_string(),
             "--visual-smoke-command=wait".to_string(),
@@ -2844,6 +2880,10 @@ mod tests {
             options.visual_smoke_visual_text_contains.as_deref(),
             Some("Ready")
         );
+        assert_eq!(
+            options.visual_smoke_panel_contains.as_deref(),
+            Some("Scene room")
+        );
         assert_eq!(options.visual_smoke_commands, ["look", "wait"]);
     }
 
@@ -2860,6 +2900,7 @@ mod tests {
             true,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -2894,6 +2935,7 @@ mod tests {
             Some(1),
             Some("Ready"),
             Some("Ready"),
+            Some("Scene room"),
             &["advance".to_string()],
         )
         .expect("visual smoke succeeds");
@@ -2918,6 +2960,7 @@ mod tests {
             Some("scene"),
             Some(2),
             Some(1),
+            None,
             None,
             None,
             None,
@@ -2948,6 +2991,7 @@ mod tests {
             Some(1),
             Some("Ready"),
             Some("Ready"),
+            Some("Scene room"),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails below node minimum");
@@ -2970,6 +3014,7 @@ mod tests {
             Some(1),
             Some("Ready"),
             Some("Ready"),
+            Some("Scene room"),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails below frame minimum");
@@ -2992,6 +3037,7 @@ mod tests {
             Some(2),
             Some("Ready"),
             Some("Ready"),
+            Some("Scene room"),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails below turn minimum");
@@ -3016,6 +3062,7 @@ mod tests {
             Some(1),
             Some(1),
             Some("Victory"),
+            None,
             None,
             &["advance".to_string()],
         )
@@ -3044,9 +3091,38 @@ mod tests {
             Some(1),
             Some("Ready"),
             Some("Victory"),
+            None,
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails on unexpected visual text");
+
+        assert!(error.contains("visual-host"));
+        assert!(error.contains("Victory"));
+    }
+
+    #[test]
+    fn macroquad_visual_smoke_can_require_panel_text() {
+        let error = macroquad_visual_smoke(
+            &[MuddleClientHostRegistration {
+                name: "visual-host",
+                category: "Tests",
+                description: "Visual smoke test host.",
+                suggested_commands: "`look`.",
+                create: || Box::new(VisualSmokeTestHost::new()),
+            }],
+            true,
+            true,
+            true,
+            Some("scene"),
+            Some(2),
+            Some(1),
+            Some(1),
+            Some("Ready"),
+            Some("Ready"),
+            Some("Victory"),
+            &["advance".to_string()],
+        )
+        .expect_err("visual smoke fails on unexpected panel text");
 
         assert!(error.contains("visual-host"));
         assert!(error.contains("Victory"));
@@ -3071,6 +3147,7 @@ mod tests {
             None,
             Some("Ready"),
             Some("Ready"),
+            Some("Scene room"),
             &["advance".to_string()],
         )
         .expect_err("visual smoke fails in unexpected room");
@@ -3091,6 +3168,7 @@ mod tests {
             true,
             true,
             false,
+            None,
             None,
             None,
             None,
@@ -3118,6 +3196,7 @@ mod tests {
             true,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -3161,6 +3240,13 @@ mod tests {
             } else {
                 None
             }
+        }
+
+        fn resource_panel(&self) -> Vec<muddle_core::MuddleResource> {
+            vec![muddle_core::MuddleResource {
+                label: "Panel".to_string(),
+                value: "Scene room".to_string(),
+            }]
         }
 
         fn visual_nodes(&self, _current_room: &str) -> Vec<MuddleVisualNode> {
