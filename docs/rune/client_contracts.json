@@ -1,0 +1,1070 @@
+{
+  "collection_id": "muddle.client_contracts",
+  "collection_version": "v0",
+  "descriptors": [
+    {
+      "id": "muddle.room",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleRoom",
+      "fields": [
+        {
+          "name": "id",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "title",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "description",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "A shared starting room.",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "exits",
+          "rust_type": "Vec < MuddleExit >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.room.id.present",
+          "text": "id is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.exit",
+      "version": "v0",
+      "kind": "command",
+      "rust_type": "MuddleExit",
+      "fields": [
+        {
+          "name": "command",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "go road",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "target_room",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "pilgrim-road",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "label",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Pilgrim Road",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.exit.command.present",
+          "text": "command is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.command",
+      "version": "v0",
+      "kind": "command",
+      "rust_type": "MuddleCommand",
+      "fields": [
+        {
+          "name": "verb",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "go",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "target",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "north",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.command.verb.present",
+          "text": "verb is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.turn",
+      "version": "v0",
+      "kind": "event",
+      "rust_type": "MuddleTurn",
+      "fields": [
+        {
+          "name": "room_id",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "command",
+          "rust_type": "MuddleCommand",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "MuddleCommand",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "response",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "You see exits.",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.turn.room_id.present",
+          "text": "room_id is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.session",
+      "version": "v0",
+      "kind": "state",
+      "rust_type": "MuddleSession",
+      "fields": [
+        {
+          "name": "current_room",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "transcript",
+          "rust_type": "Vec < MuddleTurn >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.session.current_room.present",
+          "text": "current_room is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.session_save",
+      "version": "v0",
+      "kind": "state",
+      "rust_type": "MuddleSessionSave",
+      "fields": [
+        {
+          "name": "current_room",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "commands",
+          "rust_type": "Vec < String >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "host_checkpoint",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "private",
+            "example": "host-owned checkpoint",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.session_save.current_room.present",
+          "text": "current_room is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.client_info",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleClientInfo",
+      "fields": [
+        {
+          "name": "host",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "mock-labyrinth",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "description",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Shared test host",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "suggested_commands",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "look; go road",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.client_info.host.present",
+          "text": "host is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.client_snapshot",
+      "version": "v0",
+      "kind": "state",
+      "rust_type": "MuddleClientSnapshot",
+      "fields": [
+        {
+          "name": "host",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "mock-labyrinth",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "description",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Labyrinth host",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "suggested_commands",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "look; go road",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "room",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "turns",
+          "rust_type": "usize",
+          "metadata": {
+            "required": true,
+            "unit": "turn",
+            "min": "0",
+            "sensitivity": "public",
+            "example": "0",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "room_card",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "+ Campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "last_response",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Ready.",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "panels",
+          "rust_type": "MuddleClientPanels",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "MuddleClientPanels",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "commands",
+          "rust_type": "Vec < MuddleCommandHint >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "history",
+          "rust_type": "Vec < MuddleClientHistoryEntry >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "visual_nodes",
+          "rust_type": "Vec < MuddleVisualNode >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "controls",
+          "rust_type": "Vec < MuddleClientControl >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.client_snapshot.host.present",
+          "text": "host is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": [
+        {
+          "namespace": "muddle.client_snapshot",
+          "name": "adoption_lane",
+          "value": "third_games_spike"
+        }
+      ]
+    },
+    {
+      "id": "muddle.client_control",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleClientControl",
+      "fields": [
+        {
+          "name": "id",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "room-card",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "kind",
+          "rust_type": "MuddleClientControlKind",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Text",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "label",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Room",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "text",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "Room text",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "image",
+          "rust_type": "Option < MuddleClientImage >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "MuddleClientImage",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "command",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "look",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "children",
+          "rust_type": "Vec < MuddleClientControl >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.client_control.id.present",
+          "text": "id is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.client_image",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleClientImage",
+      "fields": [
+        {
+          "name": "source",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "sprites/player.png",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "alt",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Player token",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.client_image.source.present",
+          "text": "source is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.visual_node",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleVisualNode",
+      "fields": [
+        {
+          "name": "id",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "player-token",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "kind",
+          "rust_type": "MuddleVisualNodeKind",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Sprite",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "label",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Player",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "sprite",
+          "rust_type": "Option < MuddleSpriteRef >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "MuddleSpriteRef",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "text",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "Camp",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "layer",
+          "rust_type": "i32",
+          "metadata": {
+            "required": true,
+            "unit": "z-index",
+            "sensitivity": "public",
+            "example": "10",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "x",
+          "rust_type": "i32",
+          "metadata": {
+            "required": true,
+            "unit": "grid-cell",
+            "sensitivity": "public",
+            "example": "0",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "y",
+          "rust_type": "i32",
+          "metadata": {
+            "required": true,
+            "unit": "grid-cell",
+            "sensitivity": "public",
+            "example": "0",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "width",
+          "rust_type": "i32",
+          "metadata": {
+            "required": true,
+            "unit": "grid-cell",
+            "min": "0",
+            "sensitivity": "public",
+            "example": "1",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "height",
+          "rust_type": "i32",
+          "metadata": {
+            "required": true,
+            "unit": "grid-cell",
+            "min": "0",
+            "sensitivity": "public",
+            "example": "1",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "children",
+          "rust_type": "Vec < MuddleVisualNode >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.visual_node.id.present",
+          "text": "id is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.sprite_ref",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleSpriteRef",
+      "fields": [
+        {
+          "name": "source",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "sprites/player.png",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "alt",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Player token",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "frame",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "idle",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "animation",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "breathing",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.sprite_ref.source.present",
+          "text": "source is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.client_panels",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleClientPanels",
+      "fields": [
+        {
+          "name": "resources",
+          "rust_type": "Vec < MuddleResource >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "inventory",
+          "rust_type": "Vec < MuddleInventoryItem >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "map",
+          "rust_type": "Option < String >",
+          "metadata": {
+            "required": false,
+            "sensitivity": "public",
+            "example": "ASCII map",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "objectives",
+          "rust_type": "Vec < String >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "recent_log",
+          "rust_type": "Vec < String >",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "[]",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.client_history_entry",
+      "version": "v0",
+      "kind": "event",
+      "rust_type": "MuddleClientHistoryEntry",
+      "fields": [
+        {
+          "name": "turn",
+          "rust_type": "usize",
+          "metadata": {
+            "required": true,
+            "unit": "turn",
+            "min": "1",
+            "sensitivity": "public",
+            "example": "1",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "room",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "campfire",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "command",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "look",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "response",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "You see exits.",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.resource",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleResource",
+      "fields": [
+        {
+          "name": "label",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Embers",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "value",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "3",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.inventory_item",
+      "version": "v0",
+      "kind": "entity",
+      "rust_type": "MuddleInventoryItem",
+      "fields": [
+        {
+          "name": "label",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Lantern",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "detail",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Still lit",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    },
+    {
+      "id": "muddle.command_hint",
+      "version": "v0",
+      "kind": "command",
+      "rust_type": "MuddleCommandHint",
+      "fields": [
+        {
+          "name": "command",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "look",
+            "stability": "stable"
+          }
+        },
+        {
+          "name": "description",
+          "rust_type": "String",
+          "metadata": {
+            "required": true,
+            "sensitivity": "public",
+            "example": "Inspect the room",
+            "stability": "stable"
+          }
+        }
+      ],
+      "invariants": [
+        {
+          "id": "muddle.command_hint.command.present",
+          "text": "command is not empty"
+        }
+      ],
+      "trace_links": [
+        {
+          "relation": "requirement",
+          "target": "RUNE-REQ-076"
+        }
+      ],
+      "extensions": []
+    }
+  ]
+}

@@ -32,10 +32,10 @@ Create MUDDLE as a shared text/ASCII interaction engine for portfolio games.
 | [Pulse 04 - Destination and host mounting](pulses/pulse-04.md) | Done | Set the destination goal for playing BANISH games and AMAZE escape rooms through one MUDDLE surface. |
 | [Pulse 05 - BANISH adapter spike](pulses/pulse-05.md) | Done | Mount a Pilgrim Loss launcher-shaped BANISH host through MUDDLE CLI selection. |
 | [Pulse 06 - AMAZE adapter spike](pulses/pulse-06.md) | Active | Mount a Silverstream escape-room host through MUDDLE CLI selection. |
+| [Pulse 07 - RUNE client contracts](pulses/pulse-07.md) | Done | Retain RUNE descriptors for MUDDLE's shared client, visual, command, and persistence contracts. |
 
 ## Validation
 
 ```powershell
 cargo test --quiet
 ```
-

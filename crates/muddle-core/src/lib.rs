@@ -1,50 +1,231 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use rune_core::{ContractRegistration, DescriptorCollectionDocument, RuneContract};
+use rune_derive::RuneContract as DeriveRuneContract;
+
+pub const RUNE_COLLECTION_ID: &str = "muddle.client_contracts";
+pub const RUNE_COLLECTION_VERSION: &str = "v0";
+
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.room",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.room.id.present", text = "id is not empty")
+)]
 pub struct MuddleRoom {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub id: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Campfire",
+        stability = "stable"
+    )]
     pub title: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "A shared starting room.",
+        stability = "stable"
+    )]
     pub description: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub exits: Vec<MuddleExit>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.exit",
+    version = "v0",
+    kind = "command",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.exit.command.present", text = "command is not empty")
+)]
 pub struct MuddleExit {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "go road",
+        stability = "stable"
+    )]
     pub command: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "pilgrim-road",
+        stability = "stable"
+    )]
     pub target_room: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Pilgrim Road",
+        stability = "stable"
+    )]
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.command",
+    version = "v0",
+    kind = "command",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.command.verb.present", text = "verb is not empty")
+)]
 pub struct MuddleCommand {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "go",
+        stability = "stable"
+    )]
     pub verb: String,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "north",
+        stability = "stable"
+    )]
     pub target: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.turn",
+    version = "v0",
+    kind = "event",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.turn.room_id.present", text = "room_id is not empty")
+)]
 pub struct MuddleTurn {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub room_id: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "MuddleCommand",
+        stability = "stable"
+    )]
     pub command: MuddleCommand,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "You see exits.",
+        stability = "stable"
+    )]
     pub response: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.session",
+    version = "v0",
+    kind = "state",
+    requirement = "RUNE-REQ-076",
+    invariant(
+        id = "muddle.session.current_room.present",
+        text = "current_room is not empty"
+    )
+)]
 pub struct MuddleSession {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub current_room: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub transcript: Vec<MuddleTurn>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.session_save",
+    version = "v0",
+    kind = "state",
+    requirement = "RUNE-REQ-076",
+    invariant(
+        id = "muddle.session_save.current_room.present",
+        text = "current_room is not empty"
+    )
+)]
 pub struct MuddleSessionSave {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub current_room: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub commands: Vec<String>,
+    #[rune_field(
+        required = false,
+        sensitivity = "private",
+        example = "host-owned checkpoint",
+        stability = "stable"
+    )]
     pub host_checkpoint: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_info",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.client_info.host.present", text = "host is not empty")
+)]
 pub struct MuddleClientInfo {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "mock-labyrinth",
+        stability = "stable"
+    )]
     pub host: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Shared test host",
+        stability = "stable"
+    )]
     pub description: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "look; go road",
+        stability = "stable"
+    )]
     pub suggested_commands: String,
 }
 
@@ -57,30 +238,165 @@ pub struct MuddleClientHostRegistration {
     pub create: fn() -> Box<dyn MuddleHost>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_snapshot",
+    version = "v0",
+    kind = "state",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.client_snapshot.host.present", text = "host is not empty"),
+    extension(
+        namespace = "muddle.client_snapshot",
+        name = "adoption_lane",
+        value = "third_games_spike"
+    )
+)]
 pub struct MuddleClientSnapshot {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "mock-labyrinth",
+        stability = "stable"
+    )]
     pub host: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Labyrinth host",
+        stability = "stable"
+    )]
     pub description: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "look; go road",
+        stability = "stable"
+    )]
     pub suggested_commands: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub room: String,
+    #[rune_field(
+        required = true,
+        unit = "turn",
+        min = "0",
+        sensitivity = "public",
+        example = "0",
+        stability = "stable"
+    )]
     pub turns: usize,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "+ Campfire",
+        stability = "stable"
+    )]
     pub room_card: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Ready.",
+        stability = "stable"
+    )]
     pub last_response: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "MuddleClientPanels",
+        stability = "stable"
+    )]
     pub panels: MuddleClientPanels,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub commands: Vec<MuddleCommandHint>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub history: Vec<MuddleClientHistoryEntry>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub visual_nodes: Vec<MuddleVisualNode>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub controls: Vec<MuddleClientControl>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_control",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.client_control.id.present", text = "id is not empty")
+)]
 pub struct MuddleClientControl {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "room-card",
+        stability = "stable"
+    )]
     pub id: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Text",
+        stability = "stable"
+    )]
     pub kind: MuddleClientControlKind,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Room",
+        stability = "stable"
+    )]
     pub label: String,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "Room text",
+        stability = "stable"
+    )]
     pub text: Option<String>,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "MuddleClientImage",
+        stability = "stable"
+    )]
     pub image: Option<MuddleClientImage>,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "look",
+        stability = "stable"
+    )]
     pub command: Option<String>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub children: Vec<MuddleClientControl>,
 }
 
@@ -92,24 +408,126 @@ pub enum MuddleClientControlKind {
     Group,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_image",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(
+        id = "muddle.client_image.source.present",
+        text = "source is not empty"
+    )
+)]
 pub struct MuddleClientImage {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "sprites/player.png",
+        stability = "stable"
+    )]
     pub source: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Player token",
+        stability = "stable"
+    )]
     pub alt: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.visual_node",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.visual_node.id.present", text = "id is not empty")
+)]
 pub struct MuddleVisualNode {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "player-token",
+        stability = "stable"
+    )]
     pub id: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Sprite",
+        stability = "stable"
+    )]
     pub kind: MuddleVisualNodeKind,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Player",
+        stability = "stable"
+    )]
     pub label: String,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "MuddleSpriteRef",
+        stability = "stable"
+    )]
     pub sprite: Option<MuddleSpriteRef>,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "Camp",
+        stability = "stable"
+    )]
     pub text: Option<String>,
+    #[rune_field(
+        required = true,
+        unit = "z-index",
+        sensitivity = "public",
+        example = "10",
+        stability = "stable"
+    )]
     pub layer: i32,
+    #[rune_field(
+        required = true,
+        unit = "grid-cell",
+        sensitivity = "public",
+        example = "0",
+        stability = "stable"
+    )]
     pub x: i32,
+    #[rune_field(
+        required = true,
+        unit = "grid-cell",
+        sensitivity = "public",
+        example = "0",
+        stability = "stable"
+    )]
     pub y: i32,
+    #[rune_field(
+        required = true,
+        unit = "grid-cell",
+        min = "0",
+        sensitivity = "public",
+        example = "1",
+        stability = "stable"
+    )]
     pub width: i32,
+    #[rune_field(
+        required = true,
+        unit = "grid-cell",
+        min = "0",
+        sensitivity = "public",
+        example = "1",
+        stability = "stable"
+    )]
     pub height: i32,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub children: Vec<MuddleVisualNode>,
 }
 
@@ -120,28 +538,127 @@ pub enum MuddleVisualNodeKind {
     Group,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.sprite_ref",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076",
+    invariant(id = "muddle.sprite_ref.source.present", text = "source is not empty")
+)]
 pub struct MuddleSpriteRef {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "sprites/player.png",
+        stability = "stable"
+    )]
     pub source: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Player token",
+        stability = "stable"
+    )]
     pub alt: String,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "idle",
+        stability = "stable"
+    )]
     pub frame: Option<String>,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "breathing",
+        stability = "stable"
+    )]
     pub animation: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_panels",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076"
+)]
 pub struct MuddleClientPanels {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub resources: Vec<MuddleResource>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub inventory: Vec<MuddleInventoryItem>,
+    #[rune_field(
+        required = false,
+        sensitivity = "public",
+        example = "ASCII map",
+        stability = "stable"
+    )]
     pub map: Option<String>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub objectives: Vec<String>,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "[]",
+        stability = "stable"
+    )]
     pub recent_log: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.client_history_entry",
+    version = "v0",
+    kind = "event",
+    requirement = "RUNE-REQ-076"
+)]
 pub struct MuddleClientHistoryEntry {
+    #[rune_field(
+        required = true,
+        unit = "turn",
+        min = "1",
+        sensitivity = "public",
+        example = "1",
+        stability = "stable"
+    )]
     pub turn: usize,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "campfire",
+        stability = "stable"
+    )]
     pub room: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "look",
+        stability = "stable"
+    )]
     pub command: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "You see exits.",
+        stability = "stable"
+    )]
     pub response: String,
 }
 
@@ -221,21 +738,79 @@ pub trait MuddleHost {
     ) -> Result<MuddleCommandOutcome, MuddleError>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.resource",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076"
+)]
 pub struct MuddleResource {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Embers",
+        stability = "stable"
+    )]
     pub label: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "3",
+        stability = "stable"
+    )]
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.inventory_item",
+    version = "v0",
+    kind = "entity",
+    requirement = "RUNE-REQ-076"
+)]
 pub struct MuddleInventoryItem {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Lantern",
+        stability = "stable"
+    )]
     pub label: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Still lit",
+        stability = "stable"
+    )]
     pub detail: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, DeriveRuneContract)]
+#[rune(
+    id = "muddle.command_hint",
+    version = "v0",
+    kind = "command",
+    requirement = "RUNE-REQ-076",
+    invariant(
+        id = "muddle.command_hint.command.present",
+        text = "command is not empty"
+    )
+)]
 pub struct MuddleCommandHint {
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "look",
+        stability = "stable"
+    )]
     pub command: String,
+    #[rune_field(
+        required = true,
+        sensitivity = "public",
+        example = "Inspect the room",
+        stability = "stable"
+    )]
     pub description: String,
 }
 
@@ -1037,6 +1612,86 @@ impl MuddleHost for MuddleStaticHost {
     }
 }
 
+pub const RUNE_CONTRACTS: &[ContractRegistration] = &[
+    ContractRegistration {
+        name: "MuddleRoom",
+        descriptor: MuddleRoom::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleExit",
+        descriptor: MuddleExit::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleCommand",
+        descriptor: MuddleCommand::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleTurn",
+        descriptor: MuddleTurn::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleSession",
+        descriptor: MuddleSession::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleSessionSave",
+        descriptor: MuddleSessionSave::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientInfo",
+        descriptor: MuddleClientInfo::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientSnapshot",
+        descriptor: MuddleClientSnapshot::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientControl",
+        descriptor: MuddleClientControl::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientImage",
+        descriptor: MuddleClientImage::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleVisualNode",
+        descriptor: MuddleVisualNode::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleSpriteRef",
+        descriptor: MuddleSpriteRef::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientPanels",
+        descriptor: MuddleClientPanels::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleClientHistoryEntry",
+        descriptor: MuddleClientHistoryEntry::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleResource",
+        descriptor: MuddleResource::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleInventoryItem",
+        descriptor: MuddleInventoryItem::descriptor,
+    },
+    ContractRegistration {
+        name: "MuddleCommandHint",
+        descriptor: MuddleCommandHint::descriptor,
+    },
+];
+
+pub fn rune_descriptor_collection() -> Result<DescriptorCollectionDocument, String> {
+    DescriptorCollectionDocument::from_registrations(
+        RUNE_COLLECTION_ID,
+        RUNE_COLLECTION_VERSION,
+        RUNE_CONTRACTS,
+        "MUDDLE-RUNE-001",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1321,6 +1976,43 @@ mod tests {
             }
         );
         assert!(session.transcript.is_empty());
+    }
+
+    #[test]
+    fn rune_contract_registry_preserves_client_snapshot_metadata() {
+        let collection = rune_descriptor_collection().expect("rune descriptor collection");
+
+        assert_eq!(collection.collection_id, RUNE_COLLECTION_ID);
+        assert_eq!(collection.descriptors[7].id, "muddle.client_snapshot");
+        assert_eq!(
+            collection.descriptors[7].fields[0].metadata.required,
+            Some(true)
+        );
+        assert_eq!(
+            collection.descriptors[7].fields[4].metadata.unit,
+            Some("turn".to_owned())
+        );
+        assert_eq!(
+            collection.descriptors[10].fields[7].metadata.unit,
+            Some("grid-cell".to_owned())
+        );
+        assert_eq!(
+            collection.descriptors[5].fields[2].metadata.sensitivity,
+            Some("private".to_owned())
+        );
+    }
+
+    #[test]
+    fn rune_contract_registry_matches_retained_fixture() {
+        let collection = rune_descriptor_collection().expect("rune descriptor collection");
+        let actual = serde_json::to_string_pretty(&collection).expect("serialize rune collection");
+        let expected = include_str!("../../../docs/rune/client_contracts.json");
+
+        assert_eq!(normalize_newlines(&actual), normalize_newlines(expected));
+    }
+
+    fn normalize_newlines(value: &str) -> String {
+        value.replace("\r\n", "\n").trim_end().to_owned()
     }
 
     fn fixture_host() -> MuddleStaticHost {

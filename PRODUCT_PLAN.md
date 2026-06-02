@@ -40,6 +40,7 @@ escape room without becoming either product's engine.
 | Reusable client controls | `muddle-core` exposes product-neutral text, image, button, and layout/group controls so clients can share presentation intent without sharing rendering code. |
 | Macroquad core play parity | A lightweight Macroquad window can choose mounted hosts, run the shared room-command loop, recall commands, restart/change hosts, save/reload/import/export/transcript through shared command-replay contracts, show native persistence availability/path cues, browse/filter/sort/inspect/save/load/delete/export sibling save slots, render structured game-client regions, click host-provided command controls, and expose the native run loop for product-owned launchers without moving product rules into the renderer. |
 | Scalable experience proof | At least one product slice feeds both browser and native engine clients through the same state/action/snapshot/scene contract, proving that richer UX surfaces do not fork product rules. |
+| RUNE contract evidence | AI agents can inspect the shared room, client snapshot, visual node, reusable control, panel, command-hint, history, and session-save contracts from retained descriptors instead of scraping Rust source. |
 | Replay control | Players can restart the current window host without restarting the server or losing configured save/transcript paths. |
 | Host checkpoints | Stateful hosts can attach product-owned checkpoint data to shared CLI/window saves without custom renderer logic. |
 | Transcript portability | A playthrough transcript records room ids, commands, responses, and host outcomes consistently across BANISH and AMAZE. |
@@ -130,6 +131,7 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 - shared `MuddleClientSnapshot` contract for browser and engine clients
 - shared client host registration metadata for browser and engine clients
 - reusable client text/image/button/group controls attached to snapshots
+- retained RUNE descriptor evidence for shared client and persistence contracts
 - `muddle-macroquad` lightweight game-window client and reusable native runner with host chooser, `--host`, `--list-hosts`, `--load`, `--save`, `--import`, `--export`, `--transcript`, command recall, restart/change-host controls, save/reload/import/export shortcuts, native persistence availability/path cues, native save-slot browse/filter/sort/inspect/save/load/delete/export controls, structured region rendering, clickable command hint buttons, product-owned launcher entry points, and snapshot panel/history/status rendering
 - `portfolio-showcase` window host for browsing MUDDLE-backed games, Knowledge Systems, Design Labs, and infrastructure
 

@@ -159,6 +159,14 @@ their own native launchers by passing product-owned host registrations and
 launcher-specific default paths, keeping product content outside MUDDLE while
 sharing the renderer.
 
+## RUNE contract evidence
+
+MUDDLE retains AI-readable RUNE descriptor evidence for its shared client and
+persistence contracts at `docs\rune\client_contracts.json`. See
+`docs\rune\README.md` for the boundary: descriptors cover product-neutral
+MUDDLE data, while product rules and host-owned checkpoint bodies remain in
+product repos.
+
 ## Host extension model
 
 BANISH, AMAZE, and other products do not get loaded as generic plugins in the
