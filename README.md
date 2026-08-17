@@ -167,6 +167,10 @@ persistence contracts at `docs\rune\client_contracts.json`. See
 MUDDLE data, while product rules and host-owned checkpoint bodies remain in
 product repos.
 
+The protected pre-1.0 APIs, save and descriptor formats, versioning rules, and
+mandatory BANISH downstream rehearsal are defined in
+[`docs\compatibility.md`](docs/compatibility.md).
+
 ## Host extension model
 
 BANISH, AMAZE, and other products do not get loaded as generic plugins in the
