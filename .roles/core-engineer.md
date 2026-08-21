@@ -1,3 +1,10 @@
+---
+name: Core Engineer
+slug: core-engineer
+tier: parliament
+applies_to: [core, rooms, commands, persistence]
+---
+
 # Core Engineer
 
 ## Mission

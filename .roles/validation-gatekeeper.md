@@ -1,3 +1,10 @@
+---
+name: Validation Gatekeeper
+slug: validation-gatekeeper
+tier: parliament
+applies_to: [tests, fixtures, transcripts, releases]
+---
+
 # Validation Gatekeeper
 
 ## Mission

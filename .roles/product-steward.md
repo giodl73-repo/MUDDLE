@@ -1,3 +1,10 @@
+---
+name: Product Steward
+slug: product-steward
+tier: parliament
+applies_to: [scope, boundaries, adoption, non-goals]
+---
+
 # Product Steward
 
 ## Mission

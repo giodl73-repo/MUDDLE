@@ -1,3 +1,10 @@
+---
+name: Host Adapter Engineer
+slug: host-adapter-engineer
+tier: parliament
+applies_to: [adapters, hosts, mounting, compatibility]
+---
+
 # Host Adapter Engineer
 
 ## Mission

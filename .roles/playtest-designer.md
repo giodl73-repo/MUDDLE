@@ -1,3 +1,10 @@
+---
+name: Playtest Designer
+slug: playtest-designer
+tier: stakeholders
+applies_to: [playtest, commands, readability, transcripts]
+---
+
 # Playtest Designer
 
 ## Mission
