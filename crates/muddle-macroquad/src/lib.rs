@@ -16,7 +16,7 @@ use muddle_mock_sim::MuddleMockSimHost;
 
 const DEFAULT_HOST: &str = "mock-labyrinth";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MuddleMacroquadRunOptions {
     pub host_name: Option<String>,
     pub list_hosts: bool,
@@ -138,34 +138,6 @@ const PANEL_TITLE_FONT_SIZE: f32 = 22.0;
 const BODY_FONT_SIZE: f32 = 20.0;
 const BODY_LINE_HEIGHT: f32 = 25.0;
 const SMALL_FONT_SIZE: f32 = 16.0;
-
-impl Default for MuddleMacroquadRunOptions {
-    fn default() -> Self {
-        Self {
-            host_name: None,
-            list_hosts: false,
-            visual_smoke: false,
-            require_visuals: false,
-            require_visual_frames: false,
-            require_visual_animation: false,
-            visual_smoke_room: None,
-            visual_smoke_min_nodes: None,
-            visual_smoke_min_frames: None,
-            visual_smoke_min_turns: None,
-            visual_smoke_response_contains: None,
-            visual_smoke_visual_text_contains: None,
-            visual_smoke_panel_contains: None,
-            visual_smoke_command_contains: None,
-            visual_smoke_commands: Vec::new(),
-            show_help: false,
-            load_path: None,
-            save_path: None,
-            transcript_path: None,
-            import_path: None,
-            export_path: None,
-        }
-    }
-}
 
 impl Default for MuddleMacroquadRunConfig {
     fn default() -> Self {
@@ -1678,6 +1650,7 @@ fn selected_visual_smoke_registrations(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn macroquad_visual_smoke(
     registrations: &[MuddleClientHostRegistration],
     require_visuals: bool,
@@ -2323,7 +2296,7 @@ fn visual_node_border_color(node: &MuddleMacroquadVisualNode) -> Color {
 
 fn visual_node_depth_offset(node: &MuddleMacroquadVisualNode) -> f32 {
     if visual_node_reads_as_physical(node) {
-        8.0 + (node.layer.max(0).min(30) as f32 * 0.08)
+        8.0 + (node.layer.clamp(0, 30) as f32 * 0.08)
     } else {
         4.0
     }

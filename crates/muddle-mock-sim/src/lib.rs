@@ -12,21 +12,11 @@ pub struct MuddleMockSimHost {
     state: MuddleMockSimState,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MuddleMockSimState {
     pub ember_count: u8,
     pub glyphs_read: bool,
     pub gate_unlocked: bool,
-}
-
-impl Default for MuddleMockSimState {
-    fn default() -> Self {
-        Self {
-            ember_count: 0,
-            glyphs_read: false,
-            gate_unlocked: false,
-        }
-    }
 }
 
 impl Default for MuddleMockSimHost {
