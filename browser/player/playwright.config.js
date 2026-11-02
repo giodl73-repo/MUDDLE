@@ -1,0 +1,2 @@
+import {defineConfig} from "@playwright/test";
+export default defineConfig({testDir:"./tests",workers:1,retries:0,timeout:30000,use:{baseURL:process.env.MUDDLE_BASE_URL||"http://127.0.0.1:4197/MUDDLE/"},reporter:[["list"],["json",{outputFile:process.env.MUDDLE_BASE_URL?".cache/live-browser-results.json":".cache/browser-results.json"}]],webServer:process.env.MUDDLE_BASE_URL?undefined:{command:`python -m http.server 4197 --directory "${process.env.MUDDLE_SITE_DIR||"../../target/player-release"}"`,url:"http://127.0.0.1:4197/MUDDLE/",reuseExistingServer:false}});

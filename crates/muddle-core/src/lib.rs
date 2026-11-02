@@ -1176,16 +1176,16 @@ impl MuddleSession {
                 response: turn.response.clone(),
             })
             .collect::<Vec<_>>();
-        let controls = build_client_controls(
-            &host_name,
-            &description,
-            &room_card,
-            &last_response,
-            &panels,
-            &commands,
-            &visual_nodes,
-            &history,
-        );
+        let controls = build_client_controls(BuildClientControlsInput {
+            host_name: &host_name,
+            description: &description,
+            room_card: &room_card,
+            last_response: &last_response,
+            panels: &panels,
+            commands: &commands,
+            visual_nodes: &visual_nodes,
+            history: &history,
+        });
         MuddleClientSnapshot {
             host: host_name,
             description,
@@ -1318,34 +1318,37 @@ impl MuddleStaticHost {
     }
 }
 
-fn build_client_controls(
-    host_name: &str,
-    description: &str,
-    room_card: &str,
-    last_response: &str,
-    panels: &MuddleClientPanels,
-    commands: &[MuddleCommandHint],
-    visual_nodes: &[MuddleVisualNode],
-    history: &[MuddleClientHistoryEntry],
-) -> Vec<MuddleClientControl> {
+struct BuildClientControlsInput<'a> {
+    host_name: &'a str,
+    description: &'a str,
+    room_card: &'a str,
+    last_response: &'a str,
+    panels: &'a MuddleClientPanels,
+    commands: &'a [MuddleCommandHint],
+    visual_nodes: &'a [MuddleVisualNode],
+    history: &'a [MuddleClientHistoryEntry],
+}
+
+fn build_client_controls(input: BuildClientControlsInput<'_>) -> Vec<MuddleClientControl> {
     let mut controls = vec![
         MuddleClientControl::group(
             "header",
             "Header",
             vec![
-                MuddleClientControl::text("host", "Host", host_name),
-                MuddleClientControl::text("description", "Description", description),
+                MuddleClientControl::text("host", "Host", input.host_name),
+                MuddleClientControl::text("description", "Description", input.description),
             ],
         ),
-        MuddleClientControl::text("room-card", "Room", room_card),
+        MuddleClientControl::text("room-card", "Room", input.room_card),
     ];
 
     let mut panel_controls = Vec::new();
-    if !panels.resources.is_empty() {
+    if !input.panels.resources.is_empty() {
         panel_controls.push(MuddleClientControl::group(
             "resources",
             "Resources",
-            panels
+            input
+                .panels
                 .resources
                 .iter()
                 .map(|resource| {
@@ -1358,11 +1361,12 @@ fn build_client_controls(
                 .collect(),
         ));
     }
-    if !panels.inventory.is_empty() {
+    if !input.panels.inventory.is_empty() {
         panel_controls.push(MuddleClientControl::group(
             "inventory",
             "Inventory",
-            panels
+            input
+                .panels
                 .inventory
                 .iter()
                 .map(|item| {
@@ -1375,11 +1379,12 @@ fn build_client_controls(
                 .collect(),
         ));
     }
-    if !panels.objectives.is_empty() {
+    if !input.panels.objectives.is_empty() {
         panel_controls.push(MuddleClientControl::group(
             "objectives",
             "Objectives",
-            panels
+            input
+                .panels
                 .objectives
                 .iter()
                 .enumerate()
@@ -1393,14 +1398,15 @@ fn build_client_controls(
                 .collect(),
         ));
     }
-    if let Some(map) = &panels.map {
+    if let Some(map) = &input.panels.map {
         panel_controls.push(MuddleClientControl::text("map", "Map", map));
     }
-    if !panels.recent_log.is_empty() {
+    if !input.panels.recent_log.is_empty() {
         panel_controls.push(MuddleClientControl::group(
             "recent-log",
             "Recent log",
-            panels
+            input
+                .panels
                 .recent_log
                 .iter()
                 .enumerate()
@@ -1418,11 +1424,12 @@ fn build_client_controls(
         ));
     }
 
-    if !commands.is_empty() {
+    if !input.commands.is_empty() {
         controls.push(MuddleClientControl::group(
             "commands",
             "Commands",
-            commands
+            input
+                .commands
                 .iter()
                 .enumerate()
                 .map(|(index, hint)| {
@@ -1436,24 +1443,30 @@ fn build_client_controls(
         ));
     }
 
-    if !visual_nodes.is_empty() {
+    if !input.visual_nodes.is_empty() {
         controls.push(MuddleClientControl::group(
             "visuals",
             "Visuals",
-            visual_nodes
+            input
+                .visual_nodes
                 .iter()
                 .map(visual_node_control)
                 .collect::<Vec<_>>(),
         ));
     }
 
-    controls.push(MuddleClientControl::text("status", "Status", last_response));
+    controls.push(MuddleClientControl::text(
+        "status",
+        "Status",
+        input.last_response,
+    ));
 
-    if !history.is_empty() {
+    if !input.history.is_empty() {
         controls.push(MuddleClientControl::group(
             "history",
             "History",
-            history
+            input
+                .history
                 .iter()
                 .rev()
                 .take(8)

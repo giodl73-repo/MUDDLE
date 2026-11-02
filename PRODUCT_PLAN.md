@@ -137,27 +137,16 @@ MUDDLE uses `.roles/` to keep responsibilities explicit:
 
 ## Plan review
 
-The current plan is correctly scoped for a shared UX engine: it starts with
-local rooms, commands, deterministic ASCII output, and transcripts before
-adapters or networking. The main gap is that the next pulse should prove a host
-adapter seam with a tiny fixture before adding more renderer features. That
-keeps MUDDLE from becoming BANISH-specific and gives AMAZE/board-game hosts the
-same contract.
+The adapter-first sequence has now been executed: MUDDLE has role contracts,
+the `MuddleHost` adapter seam, a stateful `muddle-mock-sim` fixture, named host
+selection in the CLI/window/Macroquad clients, BANISH and AMAZE adapter spikes,
+shared panel/control contracts, command-replay persistence, optional
+host-owned checkpoints, and retained RUNE descriptor evidence.
 
-Recommended next sequence:
-
-1. Finish role contracts and mark the workspace/core-room pulse complete.
-2. Add a minimal host adapter trait and one in-repo fixture host.
-3. Add a stateful labyrinth mock sim host that combines BANISH-like resources and
-   AMAZE-like locks.
-4. Add a CLI renderer as the first playable surface over that adapter.
-5. Add adapter selection so `muddle-cli` can mount named hosts.
-6. Keep MUDDLE's CLI dependency-neutral by sharing its runner library with
-   product-owned binaries such as `banish-muddle` and `amaze-muddle`.
-7. Expand panel contracts for richer maps after two
-   host adapters prove the minimal status/map shape.
-8. Use `muddle-window` as the first local window surface; keep richer native GUI
-   or TUI work behind the same host/session boundary.
+The next planning focus is product-owned adoption and richer experience proof:
+keep MUDDLE's runners dependency-neutral, require BANISH/AMAZE-owned handoff APIs
+for authoritative product behavior, and add future native or full-scene-engine
+clients only behind the same host/session/snapshot boundary.
 
 ## Loading and extension model
 

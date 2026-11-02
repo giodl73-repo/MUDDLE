@@ -1,0 +1,63 @@
+{
+  "schema": "muddle.browser-player-portability.v1",
+  "checked_at_utc": "2026-11-02T07:53:51.660109+00:00",
+  "status": "Local synthetic prototype; source/legal/deployment/live qualification pending",
+  "canonical_entry": "e04fd1c0a17ba92ef2ef258a4ebcdb9b9097bc8b",
+  "public_entry": "b01df7f8cb8f56e157a50e9e363ed0cdd2213136",
+  "native_tests": 91,
+  "adapter_tests": 4,
+  "browser_stats": {
+    "startTime": "2026-11-02T07:50:39.703Z",
+    "duration": 13092.173999999999,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "native_wasm_exact_repeated_outcomes": 83,
+  "independent_native_cli_save_transcript_pairs": 18,
+  "wasm": {
+    "bytes": 305251,
+    "sha256": "48f49eb57a2b1642f6fdc0d5ba5c893d56a4ab09c8d325c71271e2de8ba0e84f",
+    "max_memory_bytes": 67108864,
+    "actual_memory_growth_refusal_tested": true
+  },
+  "protected_foundation": {
+    "entry": "e04fd1c0a17ba92ef2ef258a4ebcdb9b9097bc8b",
+    "foundation_core_cli_hosts_native_renderers_workspace_locks_rune_policy": "unchanged",
+    "inherited_native_cleanup_requires_banish_rehearsal": true
+  },
+  "banish_rehearsal": {
+    "commit": "5f0e121c0981f71a68201d7a3f2a3843ee7d28c3",
+    "tests": [
+      "tests::product_owned_muddle_host_guides_friction_commands",
+      "tests::product_owned_muddle_host_plays_pilgrim_loss_path",
+      "tests::product_owned_muddle_host_emits_visual_scene_nodes",
+      "tests::product_owned_muddle_host_resumes_from_command_save",
+      "tests::product_owned_muddle_host_resumes_from_checkpoint_save"
+    ],
+    "manifest_paths": {
+      "muddle-core": "C:\\src\\muddle-pages-20261101\\crates\\muddle-core\\Cargo.toml",
+      "muddle-cli": "C:\\src\\muddle-pages-20261101\\crates\\muddle-cli\\Cargo.toml",
+      "muddle-window": "C:\\src\\muddle-pages-20261101\\crates\\muddle-window\\Cargo.toml",
+      "muddle-macroquad": "C:\\src\\muddle-pages-20261101\\crates\\muddle-macroquad\\Cargo.toml",
+      "muddle-mock-sim": "C:\\src\\muddle-pages-20261101\\crates\\muddle-mock-sim\\Cargo.toml",
+      "muddle-amaze-spike": "C:\\src\\muddle-pages-20261101\\crates\\muddle-amaze-spike\\Cargo.toml",
+      "muddle-banish-spike": "C:\\src\\muddle-pages-20261101\\crates\\muddle-banish-spike\\Cargo.toml",
+      "rally-core": "C:\\src\\TRACKER\\repos\\games-design\\rally\\Cargo.toml"
+    },
+    "rally_commit": "634227ecc2ff484c720f7fdcc7f4eccb4b103bdd",
+    "isolated_lock_sha256": "30638c585bd777638794d9808394dc3d4fa17fe054c81a761e03bf889bea140f",
+    "config_sha256": "ec5ccf389ec4cccc872df90aa3b566c2c727bbd2053c50051010b410ba119ed4",
+    "original_checkout_unchanged": true,
+    "initial_failure": "--locked refused inherited canonical BANISH lock mismatch. Only isolated rehearsal lock regenerated offline for explicit local MUDDLE/RALLY patches, then all five tests pass with --locked."
+  },
+  "retained_helper_failure": "Empty native-CLI script fixture was incorrectly written as one blank line, which native parser maps to look. Expected/actual bytes retained; empty script now has zero bytes. No native behavior or byte-equality assertion changes.",
+  "authority": "AI-simulated role lenses and software evidence, not product adoption or human approval.",
+  "remaining": [
+    "Expanded actual deadline/read/worker/generation/crash/resource coverage and stricter per-control expected kinds",
+    "Complete corresponding software source, original scoped grants and dependency/Rust notices with budgets/provenance/hash allowlists",
+    "Independent source rebuild outside Git with native/WASM controls and behavior replay",
+    "Exact final hosted/default tested-artifact Pages and fresh live proof; separate TRACKER pulse"
+  ]
+}

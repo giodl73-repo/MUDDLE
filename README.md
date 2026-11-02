@@ -85,9 +85,10 @@ cargo run -p muddle-macroquad -- --host banish-pilgrim-loss
 cargo run -p muddle-macroquad -- --host mock-labyrinth --save macroquad.muddle --transcript macroquad.txt --import portable.muddle --export exported.muddle
 ```
 
-The CLI currently supports the `mock-labyrinth` host, a tiny labyrinth with a
-camp ember, glyph antechamber, sealed gate, and echo vault. That lets MUDDLE
-test named host mounting inside this repo before integrating BANISH or AMAZE.
+The CLI supports the `mock-labyrinth`, `banish-pilgrim-loss`, and
+`amaze-silverstream` hosts. The mock labyrinth remains the in-repo fixture for
+stateful host mounting, while the BANISH and AMAZE spike hosts prove the adapter
+shape before product-owned APIs become the authority.
 For repeatable smoke checks, `--script <path>` reads newline-delimited commands
 from a file while still supporting `--save`, `--load`, and `--transcript`.
 
@@ -223,3 +224,20 @@ non-software content is licensed CC BY-NC 4.0 (copyright Gio Della-Libera);
 commercial use of that content requires separate written permission.
 Third-party material remains under its own terms.
 See [LICENSE](./LICENSE) for the complete notice.
+
+## Static Rust/WASM session player
+
+[Open the player](https://giodl73-repo.github.io/MUDDLE/) to play the existing
+mock/BANISH-spike/AMAZE-spike hosts, issue your own commands, mount authored
+static rooms and resume/export native saves and transcripts. The same Rust
+host/session/snapshot APIs run in a worker; the browser owns no game rules.
+[Build notes](browser/player/BUILD.md), [persistence boundaries](browser/player/MODEL.md),
+[source scope](browser/player/SOURCE-SCOPE.md) and the
+[release wave](context/waves/2026-11-01-wasm-player/WAVE.md) retain evidence and
+source/legal/download boundaries. Native Macroquad advisory maintenance remains
+separate; that dependency is absent from the browser build.
+
+Built-ins remain demonstration adapters, not authoritative product-owned
+BANISH/AMAZE adoption. Native save identity is untagged; native checkpoint
+validation and replay semantics stay unchanged. Text rendering exposes shared
+intent without claiming Macroquad graphics or native filesystem/slot parity.

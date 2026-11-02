@@ -1058,19 +1058,19 @@ fn open_browser(url: &str) -> io::Result<()> {
     #[cfg(target_os = "windows")]
     {
         Command::new("cmd").args(["/C", "start", "", url]).spawn()?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
     {
         Command::new("open").arg(url).spawn()?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         Command::new("xdg-open").arg(url).spawn()?;
-        return Ok(());
+        Ok(())
     }
 }
 

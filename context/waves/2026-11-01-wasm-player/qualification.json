@@ -1,0 +1,208 @@
+{
+  "schema": "muddle.player-full-qualification.v1",
+  "qualified_candidate": "59bc87810b47afe85a4bb9950c773362f0c434e2",
+  "hosted_run": 41411701313,
+  "hosted_status": "success",
+  "hosted_browser_stats": {
+    "startTime": "2026-11-02T08:17:00.339Z",
+    "duration": 44203.395,
+    "expected": 19,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "hosted_source_replay": {
+    "outside_git": true,
+    "path_contains_spaces": true,
+    "policy_production_archives_absent": true,
+    "first_party_manifest_paths_inside_source": true,
+    "native_tests": 91,
+    "adapter_tests": 4,
+    "independent_native_cli_save_transcript_pairs": 18,
+    "browser_checks": 17,
+    "identical_rebuilt_native_responses": 103,
+    "identical_rebuilt_wasm_responses": 103,
+    "original_wasm_sha256": "2c61eb0bcf27bb61627e89de7aa45fe1093488d8e08ebb6eaaaf26279d20233c",
+    "rebuilt_wasm_sha256": "7bf36ccec11703056442395723b9a3f54fe4a95b5ec70bbc670a1d030c7c25cf",
+    "binary_identity_claimed": false,
+    "dependencies_vendored": false
+  },
+  "local_source_replay": {
+    "outside_git": true,
+    "path_contains_spaces": true,
+    "policy_production_archives_absent": true,
+    "first_party_manifest_paths_inside_source": true,
+    "native_tests": 91,
+    "adapter_tests": 4,
+    "independent_native_cli_save_transcript_pairs": 18,
+    "browser_checks": 17,
+    "identical_rebuilt_native_responses": 103,
+    "identical_rebuilt_wasm_responses": 103,
+    "original_wasm_sha256": "48f49eb57a2b1642f6fdc0d5ba5c893d56a4ab09c8d325c71271e2de8ba0e84f",
+    "rebuilt_wasm_sha256": "edba1986b3cbb42995c4d59d9e075d3f1e37c2e73e464025cc9d4bd778ac352e",
+    "binary_identity_claimed": false,
+    "dependencies_vendored": false
+  },
+  "native_controls": {
+    "cases": 103,
+    "each_repeated": 2,
+    "independent_native_cli_save_transcript_pairs": 18,
+    "cli_checks": [
+      {
+        "host": "mock-labyrinth",
+        "commands": 0,
+        "save_sha256": "b059e492afe273121d952911c2f4bd11d1a18067857da3b1f53a06dcdbd237ed",
+        "transcript_sha256": "05691a4e5774586d1804be6367a5bb941a6d3f92a8d558575dade7fd31e0b8af"
+      },
+      {
+        "host": "mock-labyrinth",
+        "commands": 1,
+        "save_sha256": "2f354b223eb317a6aab42beb9481e24a017ca80f80ad2f618315da0466f00cda",
+        "transcript_sha256": "34da6ed2ee190764cc2766179b3d095510bb186fbc71584c2d1ba2dbd941ada7"
+      },
+      {
+        "host": "mock-labyrinth",
+        "commands": 2,
+        "save_sha256": "56fea199e85b212949bffab31608b584ea5f3ba744d6cf17c264d0b7b09c9bcf",
+        "transcript_sha256": "307bba1505d7f37a3ed42ddd2766722a39f413c180213fee61331309417852d2"
+      },
+      {
+        "host": "mock-labyrinth",
+        "commands": 3,
+        "save_sha256": "19a92daaf4e29f0b69dc9093bcbab99b2eb808dbdaee74bc31f9438b1ef8b93c",
+        "transcript_sha256": "d5e752c0b7cc6d5bb1d6bc5659152ce3c85ca6d09a0b9ce42a7919e435b1ec87"
+      },
+      {
+        "host": "mock-labyrinth",
+        "commands": 4,
+        "save_sha256": "484f4ab889f352429c8bb09edfe04fc6492344f6e6a885ece219561c959761b7",
+        "transcript_sha256": "acedb782783ecd2f8baca0fd6f89f45b29d621d3e5558e7296e62b761e1c726d"
+      },
+      {
+        "host": "mock-labyrinth",
+        "commands": 5,
+        "save_sha256": "9dd9b16b13c48bf93ec7f3db3de912e8daefd3071564383f9386268042a31549",
+        "transcript_sha256": "b1030de185ab53db783bd865cfa815ef3b023c4bbd6181c77b8e50c8ece77b13"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 0,
+        "save_sha256": "e9441c0419fc3dc3562ba998e4abc657716babf76d2525f09c9eea369a702bac",
+        "transcript_sha256": "3728d5bf5c7c0a9490b0eaa7e726f03a7e0015833a2b310392c4d0f5962496aa"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 1,
+        "save_sha256": "aa40ca3fa6b13ca492123bda95de1060d887fc37dece338825dab4b8f312d801",
+        "transcript_sha256": "681c692a5b927ac4d53f75913429c26406594d92ccfcdc0a93bb03c6f8fd64f5"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 2,
+        "save_sha256": "32c1e06339ab9a5e19cae7dc73fd3a0b2be1c37dedc9a2f61e2948bb55cc44e5",
+        "transcript_sha256": "83c1b2cb8ec7536425b4a34da7f5aa5af6fe54a2d1ce46db95f9a573d679fbc9"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 3,
+        "save_sha256": "c9ca1c96145fd97fed6ae863615a91be1b0a31d4ad51493a4cf68cd4f391ff7d",
+        "transcript_sha256": "7aeda1e437a4353037e5e01412f35e2ab4db0e2fbcb8862a13b592b76dae5400"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 4,
+        "save_sha256": "4dc98c37ff8f8117b114f856bd4f0b10862e7c91a51fba9d3e3e69421cd5b015",
+        "transcript_sha256": "8def6a46a6cdca90e5b236e7007380e170b617e004a1b98cf3b3407bb0c62381"
+      },
+      {
+        "host": "banish-pilgrim-loss",
+        "commands": 5,
+        "save_sha256": "4400adcb7863586c8d0a967907ad319c1bcc8e95ceff335b2617f6b618a0a6ff",
+        "transcript_sha256": "47673916127fbe465708df4911a301077aee8c9027047229983921fcfe221202"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 0,
+        "save_sha256": "ccad1a019d0ff9baec84bf8f67d40ad6f6817aff2d436748a8f741a4d064be5d",
+        "transcript_sha256": "cc7cd37efbc478a55394b21be9203cc7a28566d3245feb31810fdd796ef20126"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 1,
+        "save_sha256": "d946974484c7c0dda0b3def8f28c36aa749edfed38e5ea94f4e494e024cfe681",
+        "transcript_sha256": "973fd426519318eb7d6d51371185237c4c6cd6710b1bfb07ddf84f63b10cd9a8"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 2,
+        "save_sha256": "757b31a9f95d5d4f4e4d98eafc292de481c52ac55e09b7a800286e3978d64606",
+        "transcript_sha256": "335dcd1e4db68842096a0df9c69c5544e5605b4d78cf3f598eafbf728c621e17"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 3,
+        "save_sha256": "b5fa3fbeacd37208f2ce546e1bf3a5f5f545c36a6c7f3daff29d15c1ee77acea",
+        "transcript_sha256": "f4500a2e4a4d515e53451db9f4ab1addc76fb149108ee698272d0c025faa87db"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 4,
+        "save_sha256": "dd89d25b523a71d441aabc55ea945ccb4bf75230673a8837f54a161d0d0a2557",
+        "transcript_sha256": "f1a635d522b273ee5978be240323a1f7148ca66051a322c147b2dee8c6e1a6a3"
+      },
+      {
+        "host": "amaze-silverstream",
+        "commands": 5,
+        "save_sha256": "2e7a1fc0aac3d7f29998749b2d96f9ca3df3dcfdae8fde47349d6281cb1f3885",
+        "transcript_sha256": "fcd6c3379733cce2133fb7be88398ee1c1a9e62d52bd00cc9fd496b393bd83b7"
+      }
+    ]
+  },
+  "artifact": {
+    "schema": "muddle.browser-player-release.v1",
+    "commit": "59bc87810b47afe85a4bb9950c773362f0c434e2",
+    "repository": "https://github.com/giodl73-repo/MUDDLE",
+    "native_entry": "e04fd1c0a17ba92ef2ef258a4ebcdb9b9097bc8b",
+    "source_scope": "Complete corresponding native software workspace, retained RUNE fixture and browser companion; NOT a full repository archive or authoritative product distribution. See SOURCE-SCOPE.md.",
+    "source_files": 46,
+    "source_zip_sha256": "3f52b1f84c015189fb2c8ff8ea08783f4957875caa18fca61b862cbb7dd33265",
+    "wasm_sha256": "2c61eb0bcf27bb61627e89de7aa45fe1093488d8e08ebb6eaaaf26279d20233c",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "wasm_bindgen": "0.2.127",
+    "dependency_groups": 34,
+    "rust_notice_files": 12,
+    "runtime_files": [
+      "index.html",
+      "app.js",
+      "style.css",
+      "worker.js",
+      "example-world.json",
+      "pkg/muddle_browser_player.js",
+      "pkg/muddle_browser_player_bg.wasm"
+    ],
+    "limits": {
+      "request_bytes": 524288,
+      "save_bytes": 131072,
+      "world_bytes": 65536,
+      "report_bytes": 2097152,
+      "saved_commands_plus_new_attempts": 128,
+      "command_bytes": 1024,
+      "rooms": 32,
+      "exits": 128,
+      "interpreted_string_bytes": 4096,
+      "host_checkpoint_bytes": 65536,
+      "wasm_linear_memory_bytes": 67108864
+    },
+    "budgets": {
+      "runtime_bytes": 2097152,
+      "optional_source_zip_bytes": 10485760,
+      "site_bytes": 26214400
+    },
+    "scope": "Text client over existing mock/spike/static hosts. Native commands/saves/checkpoints/transcripts/snapshots retained. No product-owned adoption, native graphics/filesystem parity, dynamic host loading or native security certification. Saves do not encode host identity.",
+    "native_advisory": "Existing GHSA-gg76-hg3v-5q6c macroquad0.4.14 advisory remains open in native workspace; macroquad/miniquad are absent from browser dependency closure.",
+    "source_replay": "Build outside Git with first-party paths inside extracted software; repeat both complete target outcomes, native CLI byte pairs and behavior separately. No cross-directory binary identity claim."
+  },
+  "runtime_bytes": 332546,
+  "artifact_files": 91,
+  "remaining": "Final documentation/live-outcome assertion head must requalify; default deployment and fresh live proof remain required."
+}
