@@ -6,6 +6,10 @@ publish = false
 
 [workspace]
 
+[features]
+default = ["player-entry"]
+player-entry = []
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 

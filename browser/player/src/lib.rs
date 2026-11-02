@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+#[cfg(feature = "player-entry")]
 use wasm_bindgen::prelude::*;
 
 const REQUEST_BYTES: usize = 524288;
@@ -118,7 +119,13 @@ fn visual(v: &MuddleVisualNode) -> Value {
     json!({"id":v.id,"kind":format!("{:?}",v.kind),"label":v.label,"text":v.text,"layer":v.layer,"x":v.x,"y":v.y,"width":v.width,"height":v.height,
         "sprite":v.sprite.as_ref().map(|s|json!({"source":s.source,"alt":s.alt,"frame":s.frame,"animation":s.animation})),"children":v.children.iter().map(visual).collect::<Vec<_>>()})
 }
-fn snapshot(s: &MuddleClientSnapshot) -> Value {
+/// Original browser transport for the native shared client snapshot.
+///
+/// Product hosts may reuse this function from Rust without copying the field,
+/// control or visual-node mapping. It does not validate product state, fetch
+/// images or execute commands. Disable default `player-entry` when embedding
+/// this crate to avoid exporting the standalone demo player's WASM entry point.
+pub fn snapshot_json(s: &MuddleClientSnapshot) -> Value {
     json!({"host":s.host,"description":s.description,"suggested_commands":s.suggested_commands,"room":s.room,"turns":s.turns,"room_card":s.room_card,"last_response":s.last_response,
       "panels":{"resources":s.panels.resources.iter().map(|r|json!({"label":r.label,"value":r.value})).collect::<Vec<_>>(),
         "inventory":s.panels.inventory.iter().map(|i|json!({"label":i.label,"detail":i.detail})).collect::<Vec<_>>(),"map":s.panels.map,"objectives":s.panels.objectives,"recent_log":s.panels.recent_log},
@@ -214,13 +221,13 @@ fn play(r: Request) -> Result<Value, (String, String)> {
         &session,
     );
     Ok(
-        json!({"kind":"report","snapshot":snapshot(&state),"attempts":attempts,"save_text":session.save_for_host(host.as_ref()).encode(),"replay_save_text":session.save().encode(),"transcript_text":transcript,
+        json!({"kind":"report","snapshot":snapshot_json(&state),"attempts":attempts,"save_text":session.save_for_host(host.as_ref()).encode(),"replay_save_text":session.save().encode(),"transcript_text":transcript,
       "checkpoint_semantics":"Native resume replays commands, verifies final room, then imports host checkpoint. Saves do not encode host identity. Select the matching host/world explicitly; acceptance does not prove identity or provenance."}),
     )
 }
 
 /// Exact JSON transport shared by native control CLI and WASM.
-#[wasm_bindgen]
+#[cfg_attr(feature = "player-entry", wasm_bindgen)]
 pub fn evaluate(input: &str) -> String {
     let hash = format!("{:x}", Sha256::digest(input.as_bytes()));
     let result = if input.len() > REQUEST_BYTES {
