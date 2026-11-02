@@ -241,3 +241,10 @@ Built-ins remain demonstration adapters, not authoritative product-owned
 BANISH/AMAZE adoption. Native save identity is untagged; native checkpoint
 validation and replay semantics stay unchanged. Text rendering exposes shared
 intent without claiming Macroquad graphics or native filesystem/slot parity.
+
+Rust consumers of the existing native `MuddleClientSnapshot` can reuse
+`muddle_browser_player::snapshot_json` from the standalone `browser/player`
+crate. Disable its default `player-entry` feature when embedding it to omit the
+demo-player WASM export; the original field/control/visual-node mapping stays
+owned by MUDDLE. This does not register a product in the published player or
+validate product state. Consumer dependency adoption remains a separate gate.

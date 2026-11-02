@@ -24,12 +24,19 @@ Native workspace tests and companion tests run normally; retained RUNE software
 fixture is included. The native Macroquad CLI smokes require a display/Xvfb on
 Linux; normal unit tests do not open a graphical window.
 
+Rust host consumers may call `muddle_browser_player::snapshot_json` on a native
+`MuddleClientSnapshot`. This is the same mapping used by the published player;
+it does not validate state, fetch references or run host rules. Use
+`default-features = false` when embedding the crate to disable the default
+`player-entry` WASM export. All shared MUDDLE packages must resolve to one pinned
+Git revision; consumers qualify any native dependency adoption independently.
+
 Release maintainers use a clean Git checkout: verify-foundation.py, prototype
 build, package-site.py, verify-site.py <site> --commit <full HEAD>, then full
 nineteen browser cases with MUDDLE_SITE_DIR unset against target/player-release.
 Finally verify-source.py --site target/player-release/MUDDLE --bindgen <path>
 rebuilds outside Git in a path with spaces, verifies first-party manifest paths,
-repeats 91 native/four adapter tests, both 103-response sets, eighteen original
+repeats 91 native/five adapter tests (default and no-default adapter matrices), both 103-response sets, eighteen original
 CLI byte pairs and seventeen behavior cases. Source/legal delivery tests require
 the complete packaged site. Cross-directory/platform binary identity is not
 claimed; hashes are recorded separately. Complete source/notices/budgets/hashes
