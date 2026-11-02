@@ -1,5 +1,7 @@
 """Build and qualify synthetic native controls, then stage a local-only player."""
 import argparse,copy,json,os,pathlib,shutil,subprocess,tempfile,hashlib
+import importlib.util
+_spec=importlib.util.spec_from_file_location("resource_controls",pathlib.Path(__file__).with_name("resource-controls.py"));_module=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_module)
 p=argparse.ArgumentParser();p.add_argument('--bindgen',required=True,type=pathlib.Path);a=p.parse_args();B=pathlib.Path(__file__).resolve().parent;R=B.parents[1];C=B/'.cache';C.mkdir(exist_ok=True)
 env=os.environ.copy();target=pathlib.Path(env.get('CARGO_TARGET_DIR',str(R/'target/cargo'))).resolve();env['CARGO_TARGET_DIR']=str(target);env['CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS']='-C link-arg=--max-memory=67108864'
 def run(args,**kw):return subprocess.run([str(x)for x in args],cwd=R,env=env,check=True,**kw)
@@ -31,6 +33,11 @@ for host,commands in paths.items():
 world=(B/'web/example-world.json').read_text(encoding='utf-8');requests.extend([{'host':'authored-rooms','world_json':world,'commands':['look','go garden','look','go inside']},{'host':'authored-rooms','world_json':world,'commands':['javascript:alert(1)','look']},{'host':'authored-rooms','world_json':'{'}])
 for raw in ['{','null','{}','{"host":"mock-labyrinth","host":"amaze-silverstream"}','{"host":"mock-labyrinth","extra":true}',text({'host':'mock-labyrinth'})+' {}']:requests.append(raw)
 requests.extend([{'host':'unknown'},{'host':'authored-rooms'},{'host':'mock-labyrinth','world_json':world},{'host':'mock-labyrinth','commands':['α'*513]},{'host':'mock-labyrinth','save_text':'x'*131073}])
+resource=_module.controls()
+for case in resource:
+ assert evaluate(case["request"])[1]["kind"]==case["expected_kind"],case["name"]
+requests.extend(case["request"]for case in resource)
+(C/"resource-controls.json").write_text(json.dumps(resource,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 records=[]
 for q in requests:
  raw,response=evaluate(q);assert evaluate(q)[1]==response;assert response['request_sha256']==hashlib.sha256(raw.encode()).hexdigest();records.append({'request':raw,'response':response})

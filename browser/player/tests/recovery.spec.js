@@ -1,5 +1,6 @@
 import {test,expect} from "@playwright/test";
 import fs from "node:fs";
+const resources=JSON.parse(fs.readFileSync(new URL("../.cache/resource-controls.json",import.meta.url),"utf8"));
 const ready=async page=>{await page.goto("./");await expect(page.locator("#status")).toContainText("Session ready");};
 async function requestBytes(page){const [d]=await Promise.all([page.waitForEvent("download"),page.locator("#export-request").click()]);return fs.readFileSync(await d.path());}
 // Fault workers are lifecycle probes only, never game outcomes or native goldens.
@@ -51,4 +52,8 @@ test("whole-file and command bounds refuse requests while retaining accepted exp
  await ready(page);const before=await requestBytes(page);
  for(const [slot,max]of [["save",131072],["world",65536]]){await page.locator(`#${slot}`).fill("retained");await page.locator(`#${slot}-file`).setInputFiles({name:"oversized",mimeType:"text/plain",buffer:Buffer.alloc(max+1,120)});await expect(page.locator("#status")).toContainText("file exceeds");await expect(page.locator(`#${slot}`)).toHaveValue("retained");}
  await page.locator("#script").fill(Array(129).fill("look").join("\n"));await page.locator("#run-script").click();await expect(page.locator("#status")).toContainText("browser_refusal");expect(await requestBytes(page)).toEqual(before);await expect(page.locator("#turns")).toContainText("0 successful");
+});
+test("combined admitted maximum remains playable, inspectable and within mobile viewport",async({page})=>{
+ await page.setViewportSize({width:390,height:844});await ready(page);const q=resources.find(x=>x.name.startsWith("combined maximum")).request;
+ await page.locator("#world").fill(q.world_json);await page.locator("#host").selectOption("authored-rooms");await page.locator("#start").click();await expect(page.locator("#room-title")).toHaveText("r0");await page.locator("#script").fill(q.commands.join("\n"));await page.locator("#run-script").click();await expect(page.locator("#turns")).toContainText("128 successful turns");expect(await page.locator("#history li").count()).toBe(128);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);const request=JSON.parse(await requestBytes(page));expect(request).toEqual(q);await page.locator("#command").fill("look");await page.locator("#command").press("Enter");await expect(page.locator("#status")).toContainText("browser_refusal");await expect(page.locator("#turns")).toContainText("128 successful turns");
 });

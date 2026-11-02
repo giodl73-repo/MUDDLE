@@ -33,3 +33,17 @@ independent outside-Git source rebuild/replay; final exact-head/default deploy
 and fresh live proof; separate TRACKER snapshot. This is still a draft candidate,
 not a complete source/legal or live release. Native Macroquad advisory remains
 open and excluded from the browser dependency closure as recorded in Pulse 01.
+
+The next local matrix has 103 repeated exact native/WASM responses and twenty
+named static expected-kind resource controls: admitted combined32-room/128-exit/
+128-attempt/64KiB-world maximum, per-limit UTF-8/string/world/command/save/checkpoint/
+request edges, graph/room refusal, save+new-attempt total and actual 2MiB-report
+refusal. Seventeen behavior cases pass, including the maximum at mobile width
+and refusal of a 129th turn while retaining the accepted128-turn session.
+
+Complete source/notices/provenance/allowlist/budget helpers and outside-Git replay
+are now implemented, with the original full seven-crate software workspace and
+retained RUNE fixture. RUNE Git-dependency notices come from the exact resolved
+Git root when crate-local notices are absent. Source is not a full repository or
+product archive. Nineteen full cases and source rebuild remain pending until
+executed on a clean exact candidate; implementation alone is not gate closure.
