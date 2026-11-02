@@ -225,15 +225,19 @@ commercial use of that content requires separate written permission.
 Third-party material remains under its own terms.
 See [LICENSE](./LICENSE) for the complete notice.
 
-## Static Rust/WASM player candidate
+## Static Rust/WASM session player
 
-The [browser session-player wave](context/waves/2026-11-01-wasm-player/WAVE.md)
-adds a local static WASM player for the same mock/BANISH-spike/AMAZE-spike
-hosts, native saves/transcripts and own authored static rooms. It runs the
-existing Rust session/host/snapshot APIs in a worker; the browser owns no game
-rules. [Build notes](browser/player/BUILD.md) and
-[persistence boundaries](browser/player/MODEL.md) describe this candidate.
+[Open the player](https://giodl73-repo.github.io/MUDDLE/) to play the existing
+mock/BANISH-spike/AMAZE-spike hosts, issue your own commands, mount authored
+static rooms and resume/export native saves and transcripts. The same Rust
+host/session/snapshot APIs run in a worker; the browser owns no game rules.
+[Build notes](browser/player/BUILD.md), [persistence boundaries](browser/player/MODEL.md),
+[source scope](browser/player/SOURCE-SCOPE.md) and the
+[release wave](context/waves/2026-11-01-wasm-player/WAVE.md) retain evidence and
+source/legal/download boundaries. Native Macroquad advisory maintenance remains
+separate; that dependency is absent from the browser build.
 
-The candidate is locally verified but not yet a complete source/legal release
-or deployed Pages qualification. Product-owned BANISH/AMAZE games, Macroquad
-graphics and native filesystem/slot behavior retain their existing boundaries.
+Built-ins remain demonstration adapters, not authoritative product-owned
+BANISH/AMAZE adoption. Native save identity is untagged; native checkpoint
+validation and replay semantics stay unchanged. Text rendering exposes shared
+intent without claiming Macroquad graphics or native filesystem/slot parity.

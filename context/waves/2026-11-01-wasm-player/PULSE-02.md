@@ -57,3 +57,14 @@ same MIME assertion; no runtime, source custody, native behavior or bounds chang
 A local clean-Git guard also caught stale index stat metadata after exact Git-byte
 materialization; Git hash/blob bytes were equal, and refreshing that index entry
 without any content change restored clean staging. The guard was not relaxed.
+
+Corrected59bc878 passes complete local and hosted41411701313 qualification:
+19 full cases,91-file legal/source package,91 native/four adapter tests,103
+repeated exact native/WASM responses and18 original CLI save/transcript pairs.
+Downloaded source rebuilds outside Git/path with spaces, keeps first-party
+manifest paths inside extracted software and repeats both103-response sets,
+all native/adapter tests,18 independent CLI byte pairs and17 behavior cases.
+qualification.json records source replays and artifact provenance. No binary
+identity claim is made. Live tests now also require the retained hosted WASM
+outcome set; final documentation/test head must requalify before merge, then
+default deployment/fresh live proof and separate TRACKER snapshot remain pending.

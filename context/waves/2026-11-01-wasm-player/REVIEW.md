@@ -14,3 +14,13 @@ Empty-script helper failure exposed real native blank-to-look semantics, now
 documented without altering parsing or weakening byte equality. Isolation of the
 BANISH lock repair preserves the owner's checkout. No complete release or source
 package claim is made from this candidate review.
+
+Full candidate59bc878 now passes all local/hosted source/legal/delivery gates
+in qualification.json. Nineteen full browser cases include the real recovery
+suite and admitted maximum; independent source repeats17 behaviors,103 outcomes
+per target and18 native CLI byte pairs. Retained virtual-display, fixture,
+textarea-value and MIME-path corrections weaken no native or delivery assertion.
+The explicit live-outcome guard/final documentation head still requires exact
+requalification before merge. Default/live qualification and independent TRACKER
+snapshot remain gates, not implied by this AI software assessment. Native
+Macroquad advisory, product adoption and graphical/filesystem parity stay open.
