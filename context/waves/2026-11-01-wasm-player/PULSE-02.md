@@ -47,3 +47,13 @@ retained RUNE fixture. RUNE Git-dependency notices come from the exact resolved
 Git root when crate-local notices are absent. Source is not a full repository or
 product archive. Nineteen full cases and source rebuild remain pending until
 executed on a clean exact candidate; implementation alone is not gate closure.
+
+Candidate9ce40f5 passes exact91-file package verification locally/hosted and
+18 of19 full browser cases. The copied delivery MIME probe still requested the
+LUCIA artifact filename, returning404HTML; inventory hashes and all actual player
+runtime routes pass. Local/hosted run41411161723 failures, context and failed-QA
+artifact are retained. The probe now requests MUDDLE's actual WASM path with the
+same MIME assertion; no runtime, source custody, native behavior or bounds change.
+A local clean-Git guard also caught stale index stat metadata after exact Git-byte
+materialization; Git hash/blob bytes were equal, and refreshing that index entry
+without any content change restored clean staging. The guard was not relaxed.
