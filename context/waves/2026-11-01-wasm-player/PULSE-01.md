@@ -42,3 +42,15 @@ complete source/legal artifact, outside-Git source replay, exact final/default
 hosted qualification, fresh live proof and separate TRACKER snapshot. A passing
 prototype is not a complete release. Only synthetic QA is uploaded at this stage;
 compiled distribution waits for complete scoped source/legal packaging.
+
+Hosted candidate 6ba5f0c run 41409483998 passes foundation protection, native
+format/tests/strict lint and CLI/window host smokes, then native Macroquad --help
+panics at XOpenDisplay on the headless runner before companion qualification.
+Failure log and QA artifact are retained. Workflow now installs a virtual display
+and runs both unchanged Macroquad help/list smokes through xvfb-run; no native
+entrypoint, native assertion or smoke is removed or weakened.
+
+GitHub's existing open GHSA-gg76-hg3v-5q6c alert concerns root Cargo.lock's
+macroquad 0.4.14 soundness issues. The browser's locked dependency closure has
+no macroquad/miniquad; this work does not repair or promote the native graphical
+runtime's security status. Native advisory maintenance remains separate and open.

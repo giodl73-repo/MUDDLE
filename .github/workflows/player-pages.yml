@@ -29,6 +29,10 @@ jobs:
           curl -fsSL https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl.tar.gz -o /tmp/muddle-bindgen.tar.gz
           echo '61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc1614a  /tmp/muddle-bindgen.tar.gz' | sha256sum --check
           tar -xzf /tmp/muddle-bindgen.tar.gz -C /tmp
+      - name: Install virtual display for unchanged Macroquad CLI smokes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri
       - name: Guard native contracts and qualify Rust
         run: |
           python browser/player/verify-foundation.py
@@ -37,8 +41,8 @@ jobs:
           cargo clippy --locked --workspace --all-targets -- -D warnings
           cargo run --locked -p muddle-cli -- --list-hosts
           cargo run --locked -p muddle-window -- --list-hosts
-          cargo run --locked -p muddle-macroquad -- --help
-          cargo run --locked -p muddle-macroquad -- --list-hosts
+          xvfb-run -a cargo run --locked -p muddle-macroquad -- --help
+          xvfb-run -a cargo run --locked -p muddle-macroquad -- --list-hosts
           cargo fmt --manifest-path browser/player/Cargo.toml -- --check
           cargo test --locked --manifest-path browser/player/Cargo.toml
           cargo clippy --locked --manifest-path browser/player/Cargo.toml --all-targets -- -D warnings
