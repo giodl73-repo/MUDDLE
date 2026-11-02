@@ -1,0 +1,7 @@
+{
+  "start_room": "reading-room",
+  "rooms": [
+    {"id":"reading-room","title":"Reading room","description":"An authored static room. Look around, then go garden.","exits":[{"command":"go garden","target_room":"garden","label":"Garden"}]},
+    {"id":"garden","title":"Garden","description":"A quiet garden. Type go inside to return.","exits":[{"command":"go inside","target_room":"reading-room","label":"Reading room"}]}
+  ]
+}

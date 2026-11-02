@@ -1,0 +1,35 @@
+import {test,expect} from "@playwright/test";
+import fs from "node:fs";
+const cases=JSON.parse(fs.readFileSync(new URL("../.cache/native-cases.json",import.meta.url),"utf8"));
+const ready=async page=>{await page.goto("./");await expect(page.locator("#status")).toContainText("Session ready");};
+async function exported(page,selector){const [d]=await Promise.all([page.waitForEvent("download"),page.locator(selector).click()]);return fs.readFileSync(await d.path());}
+test("actual worker repeats exact native outcomes, hashes and memory ceiling",async({page})=>{
+ test.setTimeout(180000);await ready(page);
+ const results=await page.evaluate(async cases=>{
+  const worker=new Worker(new URL("worker.js",location.href),{type:"module"});let receive;worker.onmessage=e=>receive?.(e.data);const wait=()=>new Promise(r=>receive=r);let next=wait();worker.postMessage({type:"init",generation:100,id:20});await next;const outcomes=[];
+  for(const c of cases){next=wait();worker.postMessage({type:"run",generation:100,id:20,input:c.request});const data=await next;if(data.type!=="report")throw Error(JSON.stringify(data));outcomes.push({request:c.request,response:JSON.parse(data.raw),elapsedMs:data.elapsedMs});}
+  worker.terminate();const module=await import(new URL("pkg/muddle_browser_player.js",location.href));const wasm=await module.default();const before=wasm.memory.buffer.byteLength;let refused=false;try{wasm.memory.grow(1024);}catch(e){refused=e instanceof RangeError;}return {outcomes,before,after:wasm.memory.buffer.byteLength,refused};
+ },cases);
+ const outcomes=results.outcomes.map(({request,response})=>({request,response}));expect(outcomes).toEqual(cases);expect(results.refused).toBe(true);expect(results.before).toBe(results.after);expect(results.after).toBeLessThanOrEqual(67108864);fs.writeFileSync(".cache/wasm-cases.json",JSON.stringify(outcomes,null,2)+"\n");fs.writeFileSync(".cache/worker-timings.json",JSON.stringify(results.outcomes.map(({elapsedMs,response})=>({elapsedMs,kind:response.kind})),null,2)+"\n");
+});
+test("play mock path, native errors, exports and checkpoint resume",async({page})=>{
+ await ready(page);await page.locator("#command").fill("unknown-native-command");await page.locator("#command").press("Enter");await expect(page.locator("#status")).toContainText("Session ready");await expect(page.locator("#response")).toContainText("UnknownCommand");await expect(page.locator("#turns")).toContainText("0 successful");
+ await page.locator("#example-script").click();await page.locator("#run-script").click();await expect(page.locator("#room-title")).toHaveText("echo-vault");const save=await exported(page,'[data-export="save_text"]'),transcript=await exported(page,'[data-export="transcript_text"]');const r=JSON.parse(await exported(page,"#export-report"));expect(save.toString()).toBe(r.save_text);expect(transcript.toString()).toBe(r.transcript_text);expect(r.snapshot.history).toHaveLength(5);expect(r.attempts[0].kind).toBe("native_error");
+ await page.locator("#save").fill(save.toString());await page.locator("#resume").click();await expect(page.locator("#status")).toContainText("Session ready");await expect(page.locator("#room-title")).toHaveText("echo-vault");expect(await exported(page,'[data-export="transcript_text"]')).toEqual(transcript);
+ await page.locator("#save").fill("invalid save");await page.locator("#resume").click();await expect(page.locator("#status")).toContainText("native_error");await expect(page.locator("#room-title")).toHaveText("echo-vault");expect(await exported(page,'[data-export="transcript_text"]')).toEqual(transcript);
+});
+test("all built-in hosts complete native demo paths and keep host identity explicit",async({page})=>{
+ await ready(page);for(const [host,room]of [["banish-pilgrim-loss","migration-trail"],["amaze-silverstream","hatch-exit"]]){
+  await page.locator("#host").selectOption(host);await page.locator("#start").click();await expect(page.locator("#active")).toContainText(host);await page.locator("#example-script").click();await page.locator("#run-script").click();await expect(page.locator("#status")).toContainText("Session ready");const r=JSON.parse(await exported(page,"#export-report"));expect(r.attempts.every(a=>a.kind==="turn")).toBe(true);expect(r.snapshot.room).toBe(room);
+ }
+});
+test("authored native static rooms, inert text, original BOM CRLF bytes and explicit LF copy",async({page})=>{
+ await ready(page);const world={start_room:"own",rooms:[{id:"own",title:"Own <img src=x onerror=alert(1)>",description:"Own α room",exits:[{command:"go next",target_room:"next",label:"Other"}]},{id:"next",title:"Next",description:"Returned",exits:[]}]};const bytes=Buffer.from("\uFEFF"+JSON.stringify(world,null,2).replaceAll("\n","\r\n"));await page.locator("#world-file").setInputFiles({name:"own.json",mimeType:"application/json",buffer:bytes});await expect(page.locator("#world-origin")).toContainText("own.json");expect(await exported(page,"#world-original")).toEqual(bytes);await page.locator("#world-lf").click();await page.locator("#host").selectOption("authored-rooms");await page.locator("#start").click();await expect(page.locator("#room-title")).toHaveText("own");await expect(page.locator("#room")).toContainText("<img");expect(await page.locator("#room img").count()).toBe(0);await page.getByRole("button",{name:"go next",exact:true}).click();await expect(page.locator("#room-title")).toHaveText("next");
+ const req=JSON.parse(await exported(page,"#export-request"));expect(JSON.parse(req.world_json)).toEqual(world);expect(await exported(page,"#world-original")).toEqual(bytes);
+});
+test("keyboard recall, history filtering and mobile surface",async({page})=>{
+ await page.setViewportSize({width:390,height:844});await ready(page);await page.locator("#command").fill("look");await page.locator("#command").press("Enter");await expect(page.locator("#turns")).toContainText("1 successful");await page.locator("#command").press("ArrowUp");await expect(page.locator("#command")).toHaveValue("look");await page.locator("#history-filter").fill("no-match");await expect(page.locator("#history-count")).toHaveText("0 of 1 successful turns");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:".cache/mobile.png",fullPage:true});await page.setViewportSize({width:1280,height:900});await page.screenshot({path:".cache/desktop.png",fullPage:true});
+});
+test("unavailable WASM leaves independent source/build routes and input intact",async({page,request})=>{
+ await page.route("**/*.wasm",route=>route.abort());await page.goto("./");await expect(page.locator("#status")).toContainText("Engine unavailable");await page.locator("#save").fill("my retained text");await expect(page.locator("#save")).toHaveValue("my retained text");for(const name of ["Build instructions","Model and persistence notes","Compiled WASM"]){const a=page.getByRole("link",{name,exact:true});expect((await request.get(await a.getAttribute("href"))).ok()).toBe(true);}await expect(page.getByRole("link",{name:"Repository and Rust source"})).toBeVisible();
+});

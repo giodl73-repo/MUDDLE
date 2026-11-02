@@ -1,0 +1,63 @@
+name: Qualify MUDDLE WASM player prototype
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Rust and bindings
+        shell: bash
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+          rustup default 1.95.0
+          curl -fsSL https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl.tar.gz -o /tmp/muddle-bindgen.tar.gz
+          echo '61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc1614a  /tmp/muddle-bindgen.tar.gz' | sha256sum --check
+          tar -xzf /tmp/muddle-bindgen.tar.gz -C /tmp
+      - name: Guard native contracts and qualify Rust
+        run: |
+          python browser/player/verify-foundation.py
+          cargo fmt --check
+          cargo test --locked --workspace
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo run --locked -p muddle-cli -- --list-hosts
+          cargo run --locked -p muddle-window -- --list-hosts
+          cargo run --locked -p muddle-macroquad -- --help
+          cargo run --locked -p muddle-macroquad -- --list-hosts
+          cargo fmt --manifest-path browser/player/Cargo.toml -- --check
+          cargo test --locked --manifest-path browser/player/Cargo.toml
+          cargo clippy --locked --manifest-path browser/player/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --manifest-path browser/player/Cargo.toml --target wasm32-unknown-unknown --lib -- -D warnings
+      - name: Build prototype and independent CLI byte controls
+        run: python browser/player/build-prototype.py --bindgen /tmp/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl/wasm-bindgen
+      - name: Exercise actual WASM worker under project prefix
+        working-directory: browser/player
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run test:pages
+      - name: Retain synthetic QA, not a partial compiled distribution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: muddle-player-prototype-qa
+          include-hidden-files: true
+          path: |
+            browser/player/.cache/
+            context/waves/2026-11-01-wasm-player/
+            LICENSE

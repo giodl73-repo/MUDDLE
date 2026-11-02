@@ -1,2 +1,7 @@
 /target/
 *.pdb
+
+/browser/player/.cache/
+/browser/player/node_modules/
+/browser/player/test-results/
+/browser/player/target/

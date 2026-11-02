@@ -224,3 +224,16 @@ non-software content is licensed CC BY-NC 4.0 (copyright Gio Della-Libera);
 commercial use of that content requires separate written permission.
 Third-party material remains under its own terms.
 See [LICENSE](./LICENSE) for the complete notice.
+
+## Static Rust/WASM player candidate
+
+The [browser session-player wave](context/waves/2026-11-01-wasm-player/WAVE.md)
+adds a local static WASM player for the same mock/BANISH-spike/AMAZE-spike
+hosts, native saves/transcripts and own authored static rooms. It runs the
+existing Rust session/host/snapshot APIs in a worker; the browser owns no game
+rules. [Build notes](browser/player/BUILD.md) and
+[persistence boundaries](browser/player/MODEL.md) describe this candidate.
+
+The candidate is locally verified but not yet a complete source/legal release
+or deployed Pages qualification. Product-owned BANISH/AMAZE games, Macroquad
+graphics and native filesystem/slot behavior retain their existing boundaries.
